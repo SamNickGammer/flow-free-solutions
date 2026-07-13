@@ -1,0 +1,2615 @@
+<meta charset="utf-8">
+<title>Flow Free Solver — Research Notes</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root{
+    --paper:#0a0a0c;
+    --ink:#e6e8ec;          /* white pen   */
+    --blue:#7fb4e8;         /* main pen    */
+    --blue-d:#5b9bd5;
+    --orange:#f0883e;       /* headings    */
+    --red:#c0392b;          /* highlighter */
+    --dim:#6b7280;
+    --hand:"Bradley Hand","Chalkboard SE",Chalkboard,"Comic Sans MS",cursive;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#222;font-family:var(--hand);-webkit-font-smoothing:antialiased}
+
+  .page{
+    width:210mm;height:297mm;background:var(--paper);color:var(--ink);
+    padding:14mm 15mm 12mm;position:relative;overflow:hidden;
+    page-break-after:always;display:flex;flex-direction:column;
+  }
+  .page:last-child{page-break-after:auto}
+  @media screen{ .page{margin:14px auto;box-shadow:0 8px 30px rgba(0,0,0,.6)} }
+
+  /* running header, like the notes app */
+  .hdr{display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1px solid #23262e;padding-bottom:3mm;margin-bottom:6mm;flex:none}
+  .hdr .t{font-size:15pt;color:var(--ink);letter-spacing:.3px}
+  .hdr .d{font-size:9.5pt;color:var(--dim)}
+  .pno{position:absolute;bottom:6mm;right:15mm;font-size:9pt;color:var(--dim)}
+
+  h1{font-size:30pt;color:var(--orange);line-height:1.1;letter-spacing:.5px;
+    transform:rotate(-.5deg);margin-bottom:2mm}
+  h2{font-size:19pt;color:var(--orange);margin:0 0 3mm;transform:rotate(-.35deg);
+    display:inline-block}
+  h3{font-size:14pt;color:var(--ink);margin:0 0 2mm;transform:rotate(-.2deg)}
+  .sub{font-size:11pt;color:var(--dim);margin-bottom:5mm}
+
+  p,li{font-size:12.5pt;line-height:1.75;color:var(--blue)}
+  .w{color:var(--ink)} .o{color:var(--orange)} .r{color:var(--red)} .dim{color:var(--dim)}
+  b{font-weight:400;color:var(--ink)}
+  em{font-style:normal;color:var(--orange)}
+
+  .arr{color:var(--blue-d);padding-right:2px}
+  .lv1{padding-left:8mm}
+  .lv2{padding-left:17mm}
+  .lv3{padding-left:26mm}
+  .row{display:flex;gap:3mm;align-items:baseline;margin-bottom:1.5mm}
+  .row .k{flex:none;color:var(--blue-d)}
+
+  /* hand-drawn boxes */
+  .boxr,.boxo,.boxb{position:relative;display:inline-block;padding:2mm 4mm;margin:1mm 0}
+  .boxr::before,.boxo::before,.boxb::before{content:"";position:absolute;inset:0;
+    border:2.6px solid var(--red);border-radius:4px;filter:url(#rough);pointer-events:none}
+  .boxo::before{border-color:var(--orange);border-width:2px}
+  .boxb::before{border-color:var(--blue-d);border-width:2px}
+  .hl{position:relative;display:inline-block;padding:0 2px}
+  .hl::before{content:"";position:absolute;left:-2px;right:-2px;top:12%;bottom:8%;
+    background:rgba(192,57,43,.34);border-radius:3px;filter:url(#rough);z-index:-1}
+  .circ{position:relative;display:inline-block;padding:0 3mm}
+  .circ::before{content:"";position:absolute;inset:-1.4mm -1mm;border:2.2px solid var(--blue-d);
+    border-radius:50%;filter:url(#rough)}
+  .und{position:relative;display:inline-block}
+  .und::after{content:"";position:absolute;left:0;right:0;bottom:-2mm;height:2.4px;
+    background:var(--orange);border-radius:2px;filter:url(#rough)}
+  .und.b::after{background:var(--blue-d)}
+
+  .side{position:absolute;left:4mm;top:50%;transform:translateY(-50%) rotate(180deg);
+    writing-mode:vertical-rl;font-size:10.5pt;color:var(--orange);opacity:.9;
+    max-height:200mm;line-height:1.5}
+
+  /* boards */
+  .boards{display:flex;gap:6mm;flex-wrap:wrap;align-items:flex-start;margin:3mm 0}
+  .bwrap{text-align:center}
+  .blab{font-size:10pt;color:var(--dim);margin-top:1.5mm}
+  .blab b{color:var(--ink)}
+  svg.bd{display:block}
+
+  .key{display:grid;grid-template-columns:auto 1fr;gap:2.5mm 4mm;align-items:center;
+    font-size:12pt;margin-top:2mm}
+  .key .sym{display:grid;place-items:center;width:15mm}
+  .key .txt{color:var(--blue)}
+  .key .txt b{color:var(--ink)}
+
+  .stack{display:flex;flex-direction:column;gap:2mm}
+  .grow{flex:1}
+  .foot{font-size:10pt;color:var(--dim);border-top:1px solid #23262e;padding-top:2.5mm;
+    margin-top:auto}
+
+  .cols{display:flex;gap:8mm}
+  .cols>div{flex:1}
+
+  .eq{font-family:"Chalkboard SE",var(--hand);font-size:13.5pt;color:var(--ink);
+    letter-spacing:.5px;text-align:center;margin:2mm 0}
+  .warn{border-left:3px solid var(--red);padding-left:4mm;margin:3mm 0}
+  .warn p{color:var(--ink)}
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <filter id="rough">
+    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="rough2">
+    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="19" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<!-- ================= PAGE 1 : TITLE ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">Flow Free Solver — Research Notes</span>
+    <span class="d">SamNickGammer · v1</span></div>
+
+  <h1>Flow Free Solver<br>+ Screen Assistant</h1>
+  <div class="sub">figuring out how to solve every Flow Free variant — and then how to
+    put it on my phone, over the game.</div>
+
+  <div class="stack" style="margin-top:4mm">
+    <p><span class="o">◦)</span> <span class="w">The problem</span></p>
+    <p class="lv1"><span class="arr">→</span> connect every pair of coloured dots,
+      paths must <span class="hl">not cross</span>, and —</p>
+    <p class="lv2"><span class="arr">↳</span> <b>every single cell must be filled.</b>
+      <span class="dim">(this is the killer rule)</span></p>
+    <p class="lv1"><span class="arr">↳</span> that 3rd rule is why "just connect the dots"
+      fails. It forces a <em>unique</em> answer.</p>
+
+    <p style="margin-top:4mm"><span class="o">◦)</span> <span class="w">Is it hard?</span>
+      <span class="circ" style="margin-left:3mm">Yes</span></p>
+    <p class="lv1"><span class="arr">↳</span> it's <b>Numberlink</b> → deciding solvability is
+      <span class="hl">NP-complete</span>.</p>
+    <p class="lv1"><span class="arr">↳</span> no polynomial algo. Must use
+      <b>search + hard pruning</b>, or reduce to <b>SAT</b>.</p>
+    <p class="lv2"><span class="arr">↳</span> BUT real levels are <em>designed to be human-solvable</em>
+      → they collapse fast once pruning kicks in.</p>
+
+    <p style="margin-top:4mm"><span class="o">◦)</span> <span class="w">Prior art I read</span></p>
+    <p class="lv1"><span class="arr">→</span> <b>Matt Zucker</b> — fast search solver, most-constrained
+      colour + connectivity pruning. <span class="dim">(also did a SAT version)</span></p>
+    <p class="lv1"><span class="arr">→</span> <b>Torvaney</b> — clean SAT reduction, K bool vars per
+      <em>edge</em>. <span class="dim">← this is where the edge idea came from</span></p>
+    <p class="lv1"><span class="arr">→</span> <b>Columbia ParallelFlow</b> paper.</p>
+  </div>
+
+  <div class="boxr" style="margin-top:5mm">
+    <p class="w">My decision: <b>search, not SAT.</b> No solver dependency, single pass,
+      ports to a phone, and I can explain each move.</p>
+  </div>
+
+  <div class="foot">every board in these notes was generated by my solver &amp; machine-verified —
+    none of them are drawn by hand.</div>
+  <div class="pno">1</div>
+</div>
+
+<!-- ================= PAGE 2 : THE KEY ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">The Key</span><span class="d">how to read every diagram</span></div>
+
+  <h2>◦) KEY / LEGEND</h2>
+  <p class="sub">read this once — every board in these notes uses it.</p>
+
+  <div class="cols">
+    <div>
+      <h3 class="o" style="margin-bottom:3mm">On the board</h3>
+      <div class="key" id="key1"></div>
+    </div>
+    <div>
+      <h3 class="o" style="margin-bottom:3mm">The 4 rules</h3>
+      <div class="stack">
+        <p><span class="k arr">1.</span> each pair joined by <b>one path</b></p>
+        <p><span class="k arr">2.</span> paths <b>never cross</b></p>
+        <p><span class="k arr">3.</span> <span class="hl">every cell filled</span> ← the hard one</p>
+        <p><span class="k arr">4.</span> endpoints = degree 1<br>
+          <span class="lv1 dim" style="padding-left:6mm">other cells = degree 2</span></p>
+      </div>
+
+      <h3 class="o" style="margin:6mm 0 3mm">Colours</h3>
+      <div id="key2" class="key"></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:7mm">◦) Worked example — plain 5×5</h3>
+  <div class="boards" id="p2boards"></div>
+
+  <p style="margin-top:2mm"><span class="arr">↳</span> see how <b>C</b> takes the <em>long way round</em>?
+    It <span class="hl">has to</span> — because every cell must be filled. That's rule 3 doing
+    all the work.</p>
+
+  <div class="foot">uppercase = endpoint (the dot you see in game) · lowercase = the pipe you draw</div>
+  <div class="pno">2</div>
+</div>
+
+<!-- ================= PAGE 3 : THE BIG IDEA ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">The Big Idea</span><span class="d">one model for all ~30 packs</span></div>
+
+  <div class="side">this is the whole project in one page. everything else is detail.</div>
+
+  <h1 style="font-size:24pt;margin-bottom:4mm">It is <span class="und">ONE GRAPH</span>.</h1>
+
+  <p>Flow Free ships ~<b>30 pack types</b> — Mania, Bridges, Walls, Obstacles, Cubes,
+    Rectangle, Links, Warps, Hexes...</p>
+  <p><span class="arr">↳</span> they look like different games.
+    <span class="circ">They are not.</span></p>
+  <p><span class="arr">↳</span> every one = <b>the same puzzle on a different graph</b>.</p>
+
+  <div class="boxr" style="margin:4mm 0;display:block">
+    <p class="eq" style="margin:1mm 0">Board = ( <span class="o">NODES</span> ,
+      <span class="o">EDGES</span> , <span class="o">BRIDGES</span> )</p>
+    <p style="text-align:center;font-size:11pt" class="dim">
+      NODES = playable cells · coverage = every NODE filled<br>
+      EDGES = legal moves · a flow may ONLY step along an edge</p>
+  </div>
+
+  <h3 style="margin-top:4mm">◦) Every variant = a transform, done at <em>parse time</em></h3>
+  <div class="stack lv1" style="margin-top:2mm">
+    <p><span class="arr">→</span> <b>Walls</b> <span class="dim">............</span>
+      <span class="hl">remove EDGES</span> <span class="dim">(cells stay!)</span></p>
+    <p><span class="arr">→</span> <b>Obstacles / holes</b> <span class="dim">..</span>
+      <span class="hl">remove NODES</span></p>
+    <p><span class="arr">→</span> <b>Cubes / Warps / portals</b>
+      <span class="dim">..</span> <span class="hl">add EDGES</span></p>
+    <p><span class="arr">→</span> <b>Rectangle, Mania</b> <span class="dim">.....</span>
+      nothing. R≠C, or just bigger.</p>
+    <p><span class="arr">→</span> <b>Bridges</b> <span class="dim">.........</span>
+      mark a node dual-pass <span class="r">← only one that touches the solver</span></p>
+  </div>
+
+  <p style="margin-top:5mm"><span class="arr">↳</span> <b>remove edges. remove nodes. add edges.</b>
+    <span class="dim">3 operations = the entire game.</span></p>
+
+  <div class="boxo" style="margin-top:4mm;display:block">
+    <p><b>2 rules I must never break:</b></p>
+    <p class="lv1"><span class="arr">1.</span> neighbours come from <em>edges</em> —
+      <span class="r">NEVER</span> <span class="w">r±1 arithmetic</span>.
+      <span class="dim">(kills walls, seams, portals — silently)</span></p>
+    <p class="lv1"><span class="arr">2.</span> coverage counts <em>nodes</em> —
+      <span class="r">NEVER</span> <span class="w">rows × cols</span>.
+      <span class="dim">(holes leak back in → "everything unsolvable")</span></p>
+  </div>
+
+  <p style="margin-top:4mm" class="dim">↳ proved it: I built the solver, ran 7 variants.
+    Only <b class="w">bridges</b> touched the search loop.</p>
+
+  <div class="pno">3</div>
+</div>
+
+<!-- ================= PAGE 4 : WALLS ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">Walls</span><span class="d">Courtyard · Pathway · Star Field · Pockets</span></div>
+
+  <h2>◦) WALLS = remove an EDGE</h2>
+  <p>a <b>bold line between two cells</b>. Flow cannot cross it.</p>
+  <p><span class="arr">↳</span> both cells <em>still exist</em>. Both
+    <span class="hl">still have to be filled</span>. You just go around.</p>
+
+  <h3 style="margin-top:5mm">Same endpoints — wall off vs wall on</h3>
+  <div class="boards" id="p4boards"></div>
+
+  <p style="margin-top:1mm"><span class="arr">↳</span> look at <b>A</b>: endpoints 2 cells apart
+    on the same row. Without the wall it goes <b>straight across</b>. Add the wall →
+    <span class="hl">it must detour through the row above</span>, and every other flow
+    reorganises.</p>
+  <p class="lv1 dim">↳ so a wall fixture must be <em>load-bearing</em> — otherwise a solver that
+    ignores walls still passes the test.</p>
+
+  <div class="boxr" style="margin-top:4mm;display:block">
+    <p><b>THE TRAP</b> <span class="dim">— wall ≠ obstacle. They look the same. They are opposites.</span></p>
+    <div class="cols" style="margin-top:2mm">
+      <div><p class="w">WALL</p>
+        <p class="lv1">↳ both cells exist</p>
+        <p class="lv1">↳ <b>must</b> be covered</p>
+        <p class="lv1">↳ remove the <em>edge</em></p></div>
+      <div><p class="w">OBSTACLE</p>
+        <p class="lv1">↳ the cell is <b>gone</b></p>
+        <p class="lv1">↳ must <b>NOT</b> be covered</p>
+        <p class="lv1">↳ remove the <em>node</em></p></div>
+    </div>
+    <p style="margin-top:2mm" class="r">get it backwards → solver chases a cell that can never be
+      filled → <span class="hl">EVERY board reports unsolvable.</span></p>
+  </div>
+
+  <p style="margin-top:3mm" class="dim">↳ I tested it: fenced one cell on all 4 sides instead of
+    removing it. Solver said <b class="r">UNSOLVABLE</b>. Exactly as predicted.</p>
+
+  <div class="pno">4</div>
+</div>
+
+<!-- ================= PAGE 5 : OBSTACLES + HOOP ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">Obstacles &amp; shaped boards</span>
+    <span class="d">Worm · Amoeba · Inkblot · Scattered · Hoop</span></div>
+
+  <h2>◦) OBSTACLES = remove a NODE</h2>
+  <p>the cell <b>is not part of the board</b>. No flow enters it, and —</p>
+  <p class="lv1"><span class="arr">↳</span> <span class="hl">it does NOT need to be filled.</span></p>
+
+  <div class="boards" id="p5boards"></div>
+
+  <div class="boxo" style="margin-top:2mm;display:block">
+    <p><b>coverage = "every NODE filled"</b> — <span class="r">not</span>
+      <span class="w">"every cell in the R×C rectangle"</span></p>
+    <p class="dim lv1">↳ if holes leak into the count, the solver waits forever for a cell that
+      can never exist → every board unsolvable. Symptom points nowhere near the cause.</p>
+  </div>
+
+  <h3 style="margin-top:5mm">◦) Shaped boards <span class="dim">just compose</span></h3>
+  <p>Worm, Amoeba, Inkblot, Courtyard, Hourglass, <b>Hoop/Loop/Chain</b> —</p>
+  <p class="lv1"><span class="arr">↳</span> all of them are <em>just HOLE directives</em>.
+    <span class="circ">no new code</span></p>
+  <p class="lv1 dim">↳ there is no "Amoeba solver". A ring board is a rectangle with the middle
+    punched out.</p>
+
+  <div class="boards" id="p5b"></div>
+
+  <div class="pno">5</div>
+</div>
+
+<!-- ================= PAGE 6 : BRIDGES ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">Bridges</span><span class="d">the one variant that changes the solver</span></div>
+
+  <h2>◦) BRIDGES = a dual-pass node</h2>
+  <p>two flows cross the <b>same cell</b> without connecting.
+    one goes <em>horizontal</em>, one goes <em>vertical</em>.</p>
+
+  <div class="boards" id="p6boards"></div>
+
+  <div class="stack" style="margin-top:2mm">
+    <p><span class="arr">↳</span> rules: <b>2 passes</b> (1 H + 1 V) · must be
+      <b>different colours</b> · each goes <span class="hl">STRAIGHT through</span>
+      <span class="dim">(no turning on a bridge!)</span></p>
+    <p><span class="arr">↳</span> covered only when <b>both</b> passes are filled →
+      it counts as <em>2 units</em> of coverage, not 1.</p>
+  </div>
+
+  <div class="boxr" style="margin-top:5mm;display:block">
+    <p class="w"><b>THIS is why colour lives on EDGES, not cells.</b></p>
+    <p class="lv1"><code style="color:var(--orange)">owner[r][c]</code> can hold A <em>or</em> C —
+      <span class="r">not both.</span></p>
+    <p class="lv1">↳ a cell-based flood fill sees the bridge as "occupied by A" and
+      <span class="hl">refuses to route C through it</span> → board looks unsolvable.</p>
+    <p class="lv1 dim">↳ so: build the edge model FIRST. Retrofitting = rewriting every flood fill.</p>
+  </div>
+
+  <p style="margin-top:4mm"><span class="arr">↳</span> good news: a flow entering a bridge has its
+    <b>next move forced</b> (straight out the far side). Bridges <em>shrink</em> the search.</p>
+
+  <div class="pno">6</div>
+</div>
+
+<!-- ================= PAGE 7 : REST OF THE LEVELS ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">The rest of the levels</span>
+    <span class="d">Rectangle · Mania · Cubes</span></div>
+
+  <h3>◦) RECTANGLE <span class="dim">— Tower, Hourglass, Shifted</span></h3>
+  <p class="dim" style="margin-bottom:2mm">R ≠ C. Nothing changes. But: <b class="w">never store a
+    single `size` field</b> or a detector that finds 9 rows will assume 9×9 and mis-parse everything.</p>
+  <div class="boards" id="p7a"></div>
+
+  <h3 style="margin-top:4mm">◦) MANIA <span class="dim">— up to 15×15. The scale test.</span></h3>
+  <div class="boards" id="p7b"></div>
+  <p><span class="arr">↳</span> 81 cells, only 16 endpoints. <b>Coverage</b> is what pins it down —
+    G and F snake across half the board <em>because every cell must be filled</em>.</p>
+  <p class="lv1"><span class="arr">↳</span> search cost: <span class="hl">9,009 nodes</span>
+    vs <b>~24</b> for a 5×5. ← that's the blow-up the pruning has to fight.</p>
+
+  <div class="pno">7</div>
+</div>
+
+<!-- ================= PAGE 8 : CUBES ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">Cubes</span><span class="d">add edges across the fold</span></div>
+
+  <h2>◦) CUBES = add EDGES (seams)</h2>
+  <p>board is a <b>folded net</b>. Flows continue across the fold onto the next face.</p>
+  <p class="lv1"><span class="arr">↳</span> cells on adjoining face edges are
+    <em>adjacent in 3D</em> — even though they're far apart in the flat net.</p>
+
+  <div class="boards" id="p8boards"></div>
+
+  <p style="margin-top:2mm"><span class="arr">↳</span> flow <b>B</b> steps from
+    <b>(0,2) → (2,6)</b>. In the flat net that looks like a <span class="hl">teleport</span>.
+    On the folded cube they are simply neighbours.</p>
+
+  <div class="boxr" style="margin-top:4mm;display:block">
+    <p class="w"><b>The seam map must be EXPLICIT DATA. Not index arithmetic.</b></p>
+    <p class="lv1">↳ folds meet with <em>rotations</em> — face R's left column may map to face F's
+      right column <b>reversed</b>.</p>
+    <p class="lv1 r">↳ get the reversal backwards → board still <em>looks</em> solvable, hands you a
+      confident answer, and the game rejects it. <span class="hl">There is no crash to debug.</span></p>
+    <p class="lv1 dim">↳ hardcode a table: (faceA, edgeA, faceB, edgeB, reversed?). Boring = correct at 3am.</p>
+  </div>
+
+  <p style="margin-top:4mm" class="dim">↳ same "add an edge" trick covers <b class="w">Warps</b>
+    (wrap opposite borders) and <b class="w">portals</b>. All one operation.</p>
+
+  <div class="pno">8</div>
+</div>
+
+<!-- ================= PAGE 9 : PARITY ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">The parity trick</span><span class="d">a free solvability check</span></div>
+
+  <div class="side">found this by accident — tried to draw a diagram that turned out to be
+    mathematically impossible.</div>
+
+  <h2>◦) PARITY — walls &amp; holes are different <em>boards</em></h2>
+
+  <p>colour the grid like a <b>chessboard</b>: <code style="color:var(--orange)">(r+c) % 2</code>.
+    The graph is <b>bipartite</b> → a flow <em>alternates</em> black/white every step.</p>
+
+  <div class="stack lv1" style="margin-top:3mm">
+    <p><span class="arr">↳</span> both endpoints <b>same</b> colour → odd length → eats
+      <b>one extra</b> of that colour <span class="dim">(±1)</span></p>
+    <p><span class="arr">↳</span> endpoints <b>opposite</b> colours → equal number of each
+      <span class="dim">(0)</span></p>
+  </div>
+
+  <p style="margin-top:3mm">full coverage ⇒ the flows <b>partition every node</b>. So sum it all up:</p>
+
+  <div class="boxr" style="margin:3mm 0;display:block">
+    <p class="eq">( #even − #odd ) &nbsp;=&nbsp; <span class="o">S</span> − <span class="o">T</span></p>
+    <p style="text-align:center;font-size:11pt" class="dim">
+      S = colours with BOTH endpoints on even cells<br>
+      T = colours with BOTH endpoints on odd cells</p>
+  </div>
+
+  <p><span class="arr">↳</span> <b>S − T depends ONLY on where the endpoints are.</b></p>
+
+  <h3 style="margin-top:5mm">◦) I measured it</h3>
+  <div class="key" style="grid-template-columns:auto auto auto auto;gap:2mm 6mm;margin-top:2mm">
+    <p class="dim">board</p><p class="dim">nodes</p><p class="dim">#even−#odd</p><p class="dim">S−T</p>
+    <p class="w">plain 5×5</p><p>25</p><p>+1</p><p>+1</p>
+    <p class="w">5×5 + WALL</p><p><b>25</b></p><p><b>+1</b></p><p><b>+1</b></p>
+    <p class="w">5×5 + HOLE</p><p><b>24</b></p><p><b>0</b></p><p><b>0</b></p>
+    <p class="w">6×6 courtyard</p><p>32</p><p>0</p><p>0</p>
+  </div>
+
+  <p style="margin-top:4mm"><span class="arr">↳</span> the walled board needs <b>S−T = +1</b>.
+    The holed board needs <b>S−T = 0</b>.</p>
+  <p class="lv1"><span class="hl">The same endpoints can NEVER solve both.</span>
+    Removing a node always flips the parity budget by 1.</p>
+
+  <div class="boxo" style="margin-top:4mm;display:block">
+    <p class="w"><b>Free win:</b> compute S−T at parse time, O(cells), <em>before any search</em>.</p>
+    <p class="lv1">↳ if it disagrees → <b>board is unsolvable, don't search.</b></p>
+    <p class="lv1">↳ catches a <span class="r">wall misread as a hole</span> instantly —
+      i.e. the exact bug my screen-reader is most likely to make.</p>
+    <p class="lv1 dim">↳ (doesn't apply with bridges — a bridge node is visited twice, so it's
+      not a partition.)</p>
+  </div>
+
+  <div class="pno">9</div>
+</div>
+
+<!-- ================= PAGE 10 : THE SOLVER ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">The solver</span><span class="d">DFS + pruning</span></div>
+
+  <h2>◦) THE ALGORITHM</h2>
+
+  <div class="boxb" style="display:block;margin:2mm 0">
+    <p style="font-size:11.5pt;line-height:1.6"><span class="o">solve</span>(state):</p>
+    <p class="lv1" style="font-size:11.5pt;line-height:1.6">if <b>not prune_ok</b>(state) → <span class="r">FAIL</span>
+      <span class="dim">← dead state, backtrack</span></p>
+    <p class="lv1" style="font-size:11.5pt;line-height:1.6"><b>apply_forced_moves</b>(state)
+      <span class="dim">← single-option moves, no branching</span></p>
+    <p class="lv1" style="font-size:11.5pt;line-height:1.6">if all done → SUCCESS
+      <span class="hl">iff emptyCount == 0</span></p>
+    <p class="lv1" style="font-size:11.5pt;line-height:1.6">c = <b>most_constrained_colour</b>()
+      <span class="dim">← fewest legal moves</span></p>
+    <p class="lv1" style="font-size:11.5pt;line-height:1.6">for each move of c: push → recurse → pop</p>
+  </div>
+
+  <h3 style="margin-top:4mm">◦) The 5 prunes <span class="dim">— this is where ALL the speed is</span></h3>
+  <div class="stack lv1" style="margin-top:2mm">
+    <p><span class="arr">1.</span> <b>head not boxed in</b> — every live head has ≥1 move</p>
+    <p><span class="arr">2.</span> <b>reachability</b> — each colour's head can still reach its endpoint</p>
+    <p><span class="arr">3.</span> <b>coverage</b> — every empty node reachable by <em>some</em> live head</p>
+    <p><span class="arr">4.</span> <b>no stranded pocket</b> — an empty region with no head in it = dead</p>
+    <p><span class="arr">5.</span> <b>deadend</b> — an empty node with &lt;2 usable edges can't be a
+      degree-2 pass-through</p>
+  </div>
+
+  <div class="boxo" style="margin-top:4mm;display:block">
+    <p class="w"><b>All 5 walk NODES and EDGES.</b> That's why they handle every variant for free:</p>
+    <p class="lv1">↳ a <b>wall</b> is just an absent edge → 2/3/5 route around it automatically</p>
+    <p class="lv1">↳ a <b>hole</b> is just an absent node → never enters #3's count</p>
+    <p class="lv1">↳ a <b>seam</b> is just an extra edge → #2/#3 traverse it, no special case</p>
+    <p class="lv1 dim">↳ ZERO lines of variant-specific pruning code.</p>
+  </div>
+
+  <p style="margin-top:4mm"><span class="arr">↳</span> human heuristics I encoded:
+    <b>corners &amp; edges first</b> · <b>forced moves</b> · <b>don't strand a region</b> ·
+    <b>don't hug yourself</b> · <b>most-constrained first</b></p>
+
+  <div class="pno">10</div>
+</div>
+
+<!-- ================= PAGE 11 : THE APP ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">The App</span><span class="d">screen assistant · Android</span></div>
+
+  <h2>◦) THE REAL GOAL</h2>
+  <p>a bubble floating over the game. Tap it → it reads the board and solves it —</p>
+  <p class="lv1"><span class="arr">↳</span> and <span class="hl">shows me NOTHING.</span>
+    Board stays clean. Then it <em>asks</em>.</p>
+
+  <div class="boxr" style="margin:4mm 0;display:block">
+    <p class="eq" style="font-size:12pt">tap → capture → read + solve
+      <span class="dim">(silent)</span> → <span class="o">ASK ME</span></p>
+    <div class="cols" style="margin-top:3mm">
+      <div><p class="w"><b>⚡ DRAW IT</b></p>
+        <p class="lv1">↳ app swipes each flow itself, one by one</p>
+        <p class="lv1 dim">↳ AccessibilityService.dispatchGesture()</p>
+        <p class="lv1 dim">↳ real touch events. game can't tell. no root.</p></div>
+      <div><p class="w"><b>✋ MANUAL</b></p>
+        <p class="lv1">↳ <em>mild</em> overlay — ~35% opacity</p>
+        <p class="lv1">↳ + <b>direction arrows</b> <span class="dim">(a line alone doesn't say
+          which end to start from!)</span></p>
+        <p class="lv1">↳ I trace it myself.</p></div>
+    </div>
+  </div>
+
+  <p><span class="arr">↳</span> why not show it instantly? because <b>half the time drawing it
+    myself is the whole point.</b> Keep the choice.</p>
+
+  <h3 style="margin-top:5mm">◦) Pipeline</h3>
+  <p class="lv1">Foreground service → bubble (<code style="color:var(--orange)">SYSTEM_ALERT_WINDOW</code>)
+    → MediaProjection <b>1 frame</b> → grid detection → solver → overlay / gestures</p>
+
+  <div class="warn" style="margin-top:5mm">
+    <p><b>⚠ THE CONSTRAINT THAT KILLS IT</b></p>
+    <p class="lv1">overlay <b>MUST</b> be <code style="color:var(--orange)">FLAG_NOT_TOUCHABLE</code>.</p>
+    <p class="lv1">↳ else it <span class="hl">swallows my finger</span> and I can't trace the answer
+      it's showing me.</p>
+    <p class="lv1 dim">↳ looks perfect in a screenshot. Unusable in the hand. Only the bubble takes touches.</p>
+  </div>
+
+  <div class="pno">11</div>
+</div>
+
+<!-- ================= PAGE 12 : RISKS + NEXT ================= -->
+<div class="page">
+  <div class="hdr"><span class="t">Risks &amp; what's next</span><span class="d">be honest here</span></div>
+
+  <h2>◦) WHERE THIS BREAKS</h2>
+
+  <div class="stack" style="margin-top:3mm">
+    <p><span class="arr">1.</span> <b>Grid detection is the hard part</b> — not the solver.</p>
+    <p class="lv2 dim">↳ themes, DPI, notches, ad banners. And telling a <b class="w">wall</b> from a
+      <b class="w">hole</b> from a <b class="w">gridline</b> off a screenshot.</p>
+    <p class="lv2"><span class="arr">↳</span> a wall is a line <em>on a border</em>; a hole is the
+      <em>cell itself</em>. Discriminate on <b>thickness + brightness</b>, not presence.</p>
+    <p class="lv2 r">↳ one missed wall = board unsolvable, with <b>no clue why</b>.</p>
+
+    <p style="margin-top:3mm"><span class="arr">2.</span> <b>Auto-draw is DESTRUCTIVE when wrong.</b></p>
+    <p class="lv2">↳ a few px of calibration error → swipe starts on the wrong cell →
+      <span class="hl">drags a flow I didn't mean and wrecks a half-finished board.</span></p>
+    <p class="lv2 dim">↳ so: gate it on a confident read. The parity check (p.9) is a free gate.</p>
+
+    <p style="margin-top:3mm"><span class="arr">3.</span> <b>FLAG_SECURE</b> — if the game ever sets
+      it, MediaProjection returns a <b>black frame</b>.</p>
+    <p class="lv2 dim">↳ no workaround. Not true today. One release away.</p>
+
+    <p style="margin-top:3mm"><span class="arr">4.</span> <b>Speed</b> — dispatchGesture too fast →
+      game drops cells mid-drag.</p>
+    <p class="lv2 dim">↳ needs a real knob. ~40–60ms per cell. Interpolate <em>per cell</em>, not
+      just at corners.</p>
+  </div>
+
+  <h3 style="margin-top:6mm">◦) STILL UNKNOWN <span class="dim">— must check a real screenshot</span></h3>
+  <p class="lv1"><span class="arr">?</span> <b>Links</b> (Hoop/Loop/Chain) — board shapes, or
+    <em>portals</em>? <span class="dim">Either way it's a parse-time transform, so not blocking.</span></p>
+  <p class="lv1"><span class="arr">?</span> <b>Cubes</b> — exact net layout &amp; seam orientation.</p>
+
+  <div class="boxo" style="margin-top:5mm;display:block">
+    <p class="w"><b>NEXT →</b></p>
+    <p class="lv1"><span class="arr">1.</span> finish solver core + text format (WALL / HOLE / BRIDGE) + CLI</p>
+    <p class="lv1"><span class="arr">2.</span> variant fixtures — the <em>load-bearing</em> ones
+      <span class="dim">(drop a wall → must go unsolvable)</span></p>
+    <p class="lv1"><span class="arr">3.</span> grid detection from screenshots</p>
+    <p class="lv1"><span class="arr">4.</span> Android shell + Manual mode</p>
+    <p class="lv1"><span class="arr">5.</span> Auto-draw</p>
+  </div>
+
+  <div class="foot">Notes generated with a working solver. Every board machine-verified:
+    paths join their endpoints · every step a legal edge · no cell double-used · every node covered.</div>
+  <div class="pno">12</div>
+</div>
+
+<script>
+const BOARDS = {
+ "plain": {
+  "rows": 5,
+  "cols": 5,
+  "holes": [],
+  "walls": [],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     2,
+     0
+    ],
+    [
+     3,
+     0
+    ]
+   ],
+   "B": [
+    [
+     4,
+     0
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "C": [
+    [
+     4,
+     2
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "D": [
+    [
+     1,
+     2
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     0
+    ]
+   ],
+   "B": [
+    [
+     4,
+     0
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "C": [
+    [
+     4,
+     2
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ]
+   ],
+   "D": [
+    [
+     1,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  },
+  "note": "24 nodes explored"
+ },
+ "nowall": {
+  "rows": 5,
+  "cols": 5,
+  "holes": [],
+  "walls": [],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "B": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     4
+    ]
+   ],
+   "C": [
+    [
+     1,
+     4
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "D": [
+    [
+     4,
+     0
+    ],
+    [
+     3,
+     1
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "B": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     0,
+     4
+    ]
+   ],
+   "C": [
+    [
+     1,
+     4
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "D": [
+    [
+     4,
+     0
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     3,
+     1
+    ]
+   ]
+  },
+  "note": "no wall \u2014 A runs straight across"
+ },
+ "wall": {
+  "rows": 5,
+  "cols": 5,
+  "holes": [],
+  "walls": [
+   [
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     2
+    ]
+   ]
+  ],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "B": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     4
+    ]
+   ],
+   "C": [
+    [
+     1,
+     4
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "D": [
+    [
+     4,
+     0
+    ],
+    [
+     3,
+     1
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "B": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     0,
+     4
+    ]
+   ],
+   "C": [
+    [
+     1,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "D": [
+    [
+     4,
+     0
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     3,
+     1
+    ]
+   ]
+  },
+  "note": "one wall \u2014 A must detour"
+ },
+ "courtyard": {
+  "rows": 6,
+  "cols": 6,
+  "holes": [
+   [
+    2,
+    2
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    3,
+    2
+   ],
+   [
+    3,
+    3
+   ]
+  ],
+  "walls": [],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     4,
+     4
+    ],
+    [
+     1,
+     5
+    ]
+   ],
+   "B": [
+    [
+     0,
+     5
+    ],
+    [
+     0,
+     3
+    ]
+   ],
+   "C": [
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "D": [
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "E": [
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     1
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     4,
+     4
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     1,
+     5
+    ]
+   ],
+   "B": [
+    [
+     0,
+     5
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     0,
+     3
+    ]
+   ],
+   "C": [
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "D": [
+    [
+     1,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "E": [
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     4,
+     1
+    ]
+   ]
+  },
+  "note": "36 cells \u2212 4 holes = 32 to cover"
+ },
+ "bridges": {
+  "rows": 5,
+  "cols": 5,
+  "holes": [],
+  "walls": [],
+  "bridges": [
+   [
+    2,
+    2
+   ]
+  ],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     2,
+     4
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "B": [
+    [
+     4,
+     0
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "C": [
+    [
+     1,
+     1
+    ],
+    [
+     3,
+     3
+    ]
+   ],
+   "D": [
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     0
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     2,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "B": [
+    [
+     4,
+     0
+    ],
+    [
+     4,
+     1
+    ]
+   ],
+   "C": [
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     3,
+     3
+    ]
+   ],
+   "D": [
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     0
+    ]
+   ]
+  },
+  "note": "H pass = A, V pass = C"
+ },
+ "rectangle": {
+  "rows": 4,
+  "cols": 7,
+  "holes": [],
+  "walls": [],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "B": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "C": [
+    [
+     3,
+     0
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "D": [
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     5
+    ]
+   ],
+   "E": [
+    [
+     1,
+     5
+    ],
+    [
+     0,
+     6
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "B": [
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "C": [
+    [
+     3,
+     0
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "D": [
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     0,
+     5
+    ]
+   ],
+   "E": [
+    [
+     1,
+     5
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     3,
+     6
+    ],
+    [
+     2,
+     6
+    ],
+    [
+     1,
+     6
+    ],
+    [
+     0,
+     6
+    ]
+   ]
+  },
+  "note": "R != C \u2014 nothing changes"
+ },
+ "mania": {
+  "rows": 9,
+  "cols": 9,
+  "holes": [],
+  "walls": [],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     4,
+     6
+    ],
+    [
+     3,
+     4
+    ]
+   ],
+   "B": [
+    [
+     2,
+     4
+    ],
+    [
+     2,
+     5
+    ]
+   ],
+   "C": [
+    [
+     2,
+     6
+    ],
+    [
+     4,
+     8
+    ]
+   ],
+   "D": [
+    [
+     5,
+     8
+    ],
+    [
+     6,
+     8
+    ]
+   ],
+   "E": [
+    [
+     7,
+     8
+    ],
+    [
+     8,
+     5
+    ]
+   ],
+   "F": [
+    [
+     7,
+     5
+    ],
+    [
+     2,
+     2
+    ]
+   ],
+   "G": [
+    [
+     3,
+     2
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "H": [
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     4
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     4,
+     6
+    ],
+    [
+     3,
+     6
+    ],
+    [
+     3,
+     5
+    ],
+    [
+     3,
+     4
+    ]
+   ],
+   "B": [
+    [
+     2,
+     4
+    ],
+    [
+     2,
+     5
+    ]
+   ],
+   "C": [
+    [
+     2,
+     6
+    ],
+    [
+     1,
+     6
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     0,
+     5
+    ],
+    [
+     0,
+     6
+    ],
+    [
+     0,
+     7
+    ],
+    [
+     0,
+     8
+    ],
+    [
+     1,
+     8
+    ],
+    [
+     1,
+     7
+    ],
+    [
+     2,
+     7
+    ],
+    [
+     2,
+     8
+    ],
+    [
+     3,
+     8
+    ],
+    [
+     3,
+     7
+    ],
+    [
+     4,
+     7
+    ],
+    [
+     4,
+     8
+    ]
+   ],
+   "D": [
+    [
+     5,
+     8
+    ],
+    [
+     6,
+     8
+    ]
+   ],
+   "E": [
+    [
+     7,
+     8
+    ],
+    [
+     8,
+     8
+    ],
+    [
+     8,
+     7
+    ],
+    [
+     7,
+     7
+    ],
+    [
+     6,
+     7
+    ],
+    [
+     5,
+     7
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     6,
+     6
+    ],
+    [
+     7,
+     6
+    ],
+    [
+     8,
+     6
+    ],
+    [
+     8,
+     5
+    ]
+   ],
+   "F": [
+    [
+     7,
+     5
+    ],
+    [
+     6,
+     5
+    ],
+    [
+     5,
+     5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     5,
+     4
+    ],
+    [
+     6,
+     4
+    ],
+    [
+     7,
+     4
+    ],
+    [
+     8,
+     4
+    ],
+    [
+     8,
+     3
+    ],
+    [
+     7,
+     3
+    ],
+    [
+     6,
+     3
+    ],
+    [
+     5,
+     3
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     2
+    ]
+   ],
+   "G": [
+    [
+     3,
+     2
+    ],
+    [
+     4,
+     2
+    ],
+    [
+     5,
+     2
+    ],
+    [
+     6,
+     2
+    ],
+    [
+     7,
+     2
+    ],
+    [
+     8,
+     2
+    ],
+    [
+     8,
+     1
+    ],
+    [
+     8,
+     0
+    ],
+    [
+     7,
+     0
+    ],
+    [
+     7,
+     1
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     6,
+     0
+    ],
+    [
+     5,
+     0
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "H": [
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     0,
+     4
+    ]
+   ]
+  },
+  "note": "9009 nodes explored (vs ~24 for 5x5)"
+ },
+ "hoop": {
+  "rows": 5,
+  "cols": 5,
+  "holes": [
+   [
+    1,
+    1
+   ],
+   [
+    1,
+    2
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    2,
+    1
+   ],
+   [
+    2,
+    2
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    3,
+    1
+   ],
+   [
+    3,
+    2
+   ],
+   [
+    3,
+    3
+   ]
+  ],
+  "walls": [],
+  "bridges": [],
+  "seams": [],
+  "endpoints": {
+   "A": [
+    [
+     4,
+     1
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "B": [
+    [
+     0,
+     2
+    ],
+    [
+     3,
+     4
+    ]
+   ],
+   "C": [
+    [
+     4,
+     4
+    ],
+    [
+     4,
+     2
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     4,
+     1
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     3,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ],
+   "B": [
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     3,
+     4
+    ]
+   ],
+   "C": [
+    [
+     4,
+     4
+    ],
+    [
+     4,
+     3
+    ],
+    [
+     4,
+     2
+    ]
+   ]
+  },
+  "note": "a ring = plain HOLE directives"
+ },
+ "cubes": {
+  "rows": 3,
+  "cols": 7,
+  "holes": [
+   [
+    0,
+    3
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    2,
+    3
+   ]
+  ],
+  "walls": [],
+  "bridges": [],
+  "seams": [
+   [
+    [
+     0,
+     2
+    ],
+    [
+     2,
+     6
+    ]
+   ],
+   [
+    [
+     2,
+     6
+    ],
+    [
+     0,
+     2
+    ]
+   ],
+   [
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     6
+    ]
+   ],
+   [
+    [
+     1,
+     6
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   [
+    [
+     2,
+     2
+    ],
+    [
+     0,
+     6
+    ]
+   ],
+   [
+    [
+     0,
+     6
+    ],
+    [
+     2,
+     2
+    ]
+   ]
+  ],
+  "endpoints": {
+   "A": [
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "B": [
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     6
+    ]
+   ],
+   "C": [
+    [
+     1,
+     6
+    ],
+    [
+     0,
+     5
+    ]
+   ],
+   "D": [
+    [
+     0,
+     4
+    ],
+    [
+     2,
+     4
+    ]
+   ]
+  },
+  "paths": {
+   "A": [
+    [
+     2,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "B": [
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     2,
+     6
+    ]
+   ],
+   "C": [
+    [
+     1,
+     6
+    ],
+    [
+     0,
+     6
+    ],
+    [
+     0,
+     5
+    ]
+   ],
+   "D": [
+    [
+     0,
+     4
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     1,
+     5
+    ],
+    [
+     2,
+     5
+    ],
+    [
+     2,
+     4
+    ]
+   ]
+  },
+  "note": "seam: A(r,2) <-> B(2-r,6), REVERSED"
+ }
+};
+
+const COL = {A:'#e85d57',B:'#5b9bd5',C:'#4caf7d',D:'#e8c547',
+             E:'#f0883e',F:'#a98bd8',G:'#4fc3d9',H:'#e87da8'};
+const CS = 26, PAD = 13;
+
+function key(rc){ return rc[0]+','+rc[1]; }
+
+function drawBoard(name, size){
+  const b = BOARDS[name];
+  if(!b) return '<!-- missing '+name+' -->';
+  const cs = size || CS, pad = cs/2;
+  const W = b.cols*cs, H = b.rows*cs;
+  const xy = rc => [rc[1]*cs+pad, rc[0]*cs+pad];
+  let s = `<svg class="bd" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+
+  // board plate
+  s += `<rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" rx="4"
+        fill="#15171d" stroke="#2c3140" stroke-width="1.4" filter="url(#rough2)"/>`;
+
+  // grid lines
+  const holes = new Set(b.holes.map(key));
+  s += '<g filter="url(#rough2)" stroke="#2c3140" stroke-width="1">';
+  for(let i=1;i<b.cols;i++) s += `<line x1="${i*cs}" y1="3" x2="${i*cs}" y2="${H-3}"/>`;
+  for(let i=1;i<b.rows;i++) s += `<line x1="3" y1="${i*cs}" x2="${W-3}" y2="${i*cs}"/>`;
+  s += '</g>';
+
+  // holes
+  b.holes.forEach(h=>{
+    const [x,y] = xy(h);
+    s += `<rect x="${x-cs/2+2}" y="${y-cs/2+2}" width="${cs-4}" height="${cs-4}" rx="3"
+          fill="#07080a" stroke="#31363f" stroke-width="1" filter="url(#rough2)"/>`;
+    s += `<path d="M ${x-5} ${y-5} L ${x+5} ${y+5} M ${x+5} ${y-5} L ${x-5} ${y+5}"
+          stroke="#3d434f" stroke-width="1.4" stroke-linecap="round" filter="url(#rough2)"/>`;
+  });
+
+  // pipes
+  const W_ = Math.max(6, cs*0.42);
+  Object.keys(b.paths).forEach(k=>{
+    const p = b.paths[k];
+    let d='', broke=false;
+    for(let i=0;i<p.length;i++){
+      const cur = xy(p[i]);
+      if(i>0){
+        const pv = p[i-1];
+        const adj = Math.abs(pv[0]-p[i][0]) + Math.abs(pv[1]-p[i][1]) === 1;
+        if(!adj){ d += ` M ${cur[0]} ${cur[1]}`; broke=true; continue; }  // seam: lift pen
+      }
+      d += (i? ' L ':'M ') + cur[0] + ' ' + cur[1];
+    }
+    s += `<path d="${d}" fill="none" stroke="${COL[k]||'#888'}" stroke-width="${W_}"
+          stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>`;
+  });
+
+  // walls (thick red bars on the shared border)
+  // NB: drawn as RECTs, not lines. A filter on a perfectly straight line has a
+  // zero-width bbox and gets clipped away entirely -> the wall vanishes.
+  b.walls.forEach(w=>{
+    const [a,z] = w;
+    const [ax,ay] = xy(a), [bx,by] = xy(z);
+    const mx=(ax+bx)/2, my=(ay+by)/2;
+    const half = cs*0.46, th = 5;
+    const vert = (a[0]===z[0]);                     // same row => bar is vertical
+    const rx = vert ? mx-th/2 : mx-half;
+    const ry = vert ? my-half : my-th/2;
+    const rw = vert ? th : half*2;
+    const rh = vert ? half*2 : th;
+    s += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="2.5"
+          fill="#e0392b" stroke="#7a1f16" stroke-width="0.8" filter="url(#rough2)"/>`;
+  });
+
+  // bridges
+  b.bridges.forEach(br=>{
+    const [x,y]=xy(br); const r=cs*0.34;
+    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#cfd6e4"
+          stroke-width="1.6" filter="url(#rough2)"/>`;
+  });
+
+  // endpoints (draw last, on top)
+  Object.keys(b.endpoints).forEach(k=>{
+    b.endpoints[k].forEach(rc=>{
+      const [x,y]=xy(rc);
+      s += `<circle cx="${x}" cy="${y}" r="${cs*0.33}" fill="${COL[k]||'#888'}"/>`;
+      s += `<circle cx="${x}" cy="${y}" r="${cs*0.33}" fill="none" stroke="#0a0a0c"
+            stroke-width="1"/>`;
+    });
+  });
+
+  s += '</svg>';
+  return s;
+}
+
+function puzzleOnly(name, size){
+  const b = BOARDS[name];
+  const saved = b.paths;
+  b.paths = {};
+  const out = drawBoard(name, size);
+  b.paths = saved;
+  return out;
+}
+
+function pair(el, name, size, l1, l2){
+  const e = document.getElementById(el);
+  if(!e) return;
+  e.innerHTML =
+    `<div class="bwrap">${puzzleOnly(name,size)}<div class="blab">${l1}</div></div>` +
+    `<div class="bwrap" style="display:grid;place-items:center;height:${(BOARDS[name].rows*(size||CS))}px;
+       color:#6b7280;font-size:15pt">→</div>` +
+    `<div class="bwrap">${drawBoard(name,size)}<div class="blab">${l2}</div></div>`;
+}
+
+// ---- key page
+document.getElementById('key1').innerHTML = [
+  [`<svg width="34" height="34"><circle cx="17" cy="17" r="10" fill="#e85d57"/></svg>`,
+   `<b>endpoint</b> — the dot you see in the game`],
+  [`<svg width="34" height="34"><line x1="2" y1="17" x2="32" y2="17" stroke="#5b9bd5"
+      stroke-width="11" stroke-linecap="round"/></svg>`,
+   `<b>pipe</b> — the path you draw`],
+  [`<svg width="34" height="34">
+      <rect x="3" y="4" width="12" height="26" rx="2" fill="#15171d" stroke="#2c3140"/>
+      <rect x="19" y="4" width="12" height="26" rx="2" fill="#15171d" stroke="#2c3140"/>
+      <rect x="15.2" y="4" width="4.6" height="26" rx="2" fill="#e0392b"
+        stroke="#7a1f16" stroke-width="0.8" filter="url(#rough2)"/></svg>`,
+   `<b>WALL</b> — flow can't cross. <em>both cells still exist &amp; must be filled</em>`],
+  [`<svg width="34" height="34"><rect x="5" y="5" width="24" height="24" rx="3" fill="#07080a"
+      stroke="#31363f"/><path d="M12 12 L22 22 M22 12 L12 22" stroke="#3d434f" stroke-width="1.6"
+      stroke-linecap="round"/></svg>`,
+   `<b>HOLE</b> — not a cell. <em>must NOT be filled</em>`],
+  [`<svg width="34" height="34"><circle cx="17" cy="17" r="9" fill="none" stroke="#cfd6e4"
+      stroke-width="1.6"/></svg>`,
+   `<b>BRIDGE</b> — 2 flows cross here (1 H + 1 V)`],
+].map(([s,t])=>`<div class="sym">${s}</div><div class="txt">${t}</div>`).join('');
+
+document.getElementById('key2').innerHTML = ['A','B','C','D','E','F','G','H']
+  .map(k=>`<div class="sym"><svg width="34" height="18">
+    <circle cx="9" cy="9" r="7" fill="${COL[k]}"/>
+    <line x1="18" y1="9" x2="32" y2="9" stroke="${COL[k]}" stroke-width="7"
+      stroke-linecap="round"/></svg></div>
+    <div class="txt">flow <b>${k}</b></div>`).join('');
+
+// ---- boards
+pair('p2boards','plain',34,'puzzle — 4 pairs of dots','solution — all 25 cells filled');
+document.getElementById('p4boards').innerHTML =
+  `<div class="bwrap">${drawBoard('nowall',32)}<div class="blab"><b>no wall</b> — A goes straight across</div></div>
+   <div class="bwrap" style="display:grid;place-items:center;height:160px;color:#6b7280;font-size:15pt">vs</div>
+   <div class="bwrap">${drawBoard('wall',32)}<div class="blab"><b>+1 wall</b> — A detours, everything reorganises</div></div>`;
+pair('p5boards','courtyard',30,'courtyard — 4 holes','32 nodes covered, holes stay empty');
+document.getElementById('p5b').innerHTML =
+  `<div class="bwrap">${puzzleOnly('hoop',30)}<div class="blab">Hoop — a ring board</div></div>
+   <div class="bwrap" style="display:grid;place-items:center;height:150px;color:#6b7280;font-size:15pt">→</div>
+   <div class="bwrap">${drawBoard('hoop',30)}<div class="blab">16 nodes. just HOLE directives.</div></div>`;
+pair('p6boards','bridges',34,'bridge at centre','A crosses H, C crosses V — same cell');
+pair('p7a','rectangle',28,'4 × 7','R ≠ C — nothing changes');
+document.getElementById('p7b').innerHTML =
+  `<div class="bwrap">${puzzleOnly('mania',24)}<div class="blab">9×9 — 81 cells, 16 dots</div></div>
+   <div class="bwrap" style="display:grid;place-items:center;height:216px;color:#6b7280;font-size:15pt">→</div>
+   <div class="bwrap">${drawBoard('mania',24)}<div class="blab">9,009 nodes explored</div></div>`;
+document.getElementById('p8boards').innerHTML =
+  `<div class="bwrap">${puzzleOnly('cubes',30)}<div class="blab">the flat net (✕ = the fold)</div></div>
+   <div class="bwrap" style="display:grid;place-items:center;height:90px;color:#6b7280;font-size:15pt">→</div>
+   <div class="bwrap">${drawBoard('cubes',30)}<div class="blab">B jumps the seam: (0,2) → (2,6)</div></div>`;
+</script>

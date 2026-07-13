@@ -199,9 +199,18 @@ The same tricks a person uses (great for pruning and for explaining a solution):
         └── 07-cubes.md           3D nets → seam edges
 ```
 
-> **PDF docs:** the markdown files are the source of truth. Generate PDFs on demand with
-> `pandoc docs/01-problem-analysis.md -o out.pdf` (needs `pandoc` + a LaTeX engine). We don't
-> commit binaries.
+## Research notes (PDF)
+
+**[`notes/flow-free-notes.pdf`](notes/flow-free-notes.pdf)** — a 12-page handwritten-style write-up
+of the whole investigation: the problem, the key/legend, the one-graph insight, every level type
+with worked boards, the parity trick, the solver, and the app.
+
+```
+./tools/build_notes.sh      # solve all boards → inline → render PDF (needs Chrome)
+```
+
+Every board in it is **solved and machine-verified** by `tools/flow.py` before it's drawn — none are
+hand-drawn, so none can quietly violate coverage.
 
 ---
 
