@@ -45,9 +45,50 @@ A grid puzzle. Pairs of colored dots sit on a grid. Connect each pair with a pip
 
 That third rule is what makes it hard — and what makes a valid solution usually unique.
 
-**Bridges** variant adds crossover cells where two pipes pass over/under each other on the same
-cell. See **[docs/01-problem-analysis.md](docs/01-problem-analysis.md)** for full rules,
-the bridges model, and why this is NP-complete.
+See **[docs/01-problem-analysis.md](docs/01-problem-analysis.md)** for full rules and why this is
+NP-complete.
+
+---
+
+## Level types: one graph, every variant
+
+Flow Free ships ~30 pack categories — Mania, Bridges, Walls, Obstacles, Cubes, Rectangle, Links,
+Warps, Hexes. They look like different games. **They aren't.** Every one is the same puzzle on a
+different **graph**:
+
+```
+Board = (Nodes, Edges, Bridges)
+  Nodes  playable cells.        Coverage: every NODE must be filled.
+  Edges  legal moves.           A flow may only step along an Edge.
+```
+
+| Variant | Transform on the graph |
+|---|---|
+| **[Mania](docs/levels/01-mania.md)** (up to 15×15) | none — just bigger (the *scale* test) |
+| **[Rectangle](docs/levels/02-rectangle.md)** | none — `R ≠ C` |
+| **[Walls](docs/levels/03-walls.md)** (bold blocking lines) | **remove edges** |
+| **[Obstacles](docs/levels/04-obstacles.md)** (holes / shaped boards) | **remove nodes** |
+| **[Bridges](docs/levels/05-bridges.md)** (crossovers) | mark dual-pass nodes |
+| **[Links](docs/levels/06-links.md)** (Hoop/Loop/Chain) | remove nodes *(or add edges)* |
+| **[Cubes](docs/levels/07-cubes.md)** (3D nets) | **add edges** across folds |
+
+**Remove edges, remove nodes, add edges.** Three operations cover the entire game — all applied at
+**parse time**, so the solver never changes.
+
+### The distinction that matters: walls vs obstacles
+
+They look alike on screen and are **opposites** to the solver:
+
+| | **Wall** (line *between* cells) | **Obstacle** (cell is *gone*) |
+|---|---|---|
+| Cells exist? | **yes, both** | **no** |
+| Must be covered? | **yes** | **no** |
+| Graph op | remove the **edge** | remove the **node** |
+
+Model an obstacle as a wall and the solver chases a cell that can never be filled → **every board
+reports unsolvable**. Getting this right at parse time is what makes the solver correct for free.
+
+Full breakdown: **[docs/levels/](docs/levels/)**.
 
 ---
 
@@ -89,12 +130,21 @@ The same tricks a person uses (great for pruning and for explaining a solution):
 .
 ├── README.md                    ← you are here
 └── docs/
-    ├── 01-problem-analysis.md    Rules, bridges variant, complexity
+    ├── 01-problem-analysis.md    Rules, complexity, text format
     ├── 02-solving-approaches.md  Search vs SAT, heuristics, our choice
     ├── 03-architecture.md        The mobile screen-aware assistant design
-    ├── 04-solver-design.md       Concrete solver: data model + algorithm
+    ├── 04-solver-design.md       Concrete solver: graph model + algorithm
     ├── 05-roadmap.md             Phased build plan
-    └── references.md             Sources and prior art
+    ├── references.md             Sources and prior art
+    └── levels/                   ← one file per level type
+        ├── README.md             The universal graph model (start here)
+        ├── 01-mania.md           Large boards — the scale test
+        ├── 02-rectangle.md       Non-square boards
+        ├── 03-walls.md           Blocking lines → remove edges
+        ├── 04-obstacles.md       Holes / shaped boards → remove nodes
+        ├── 05-bridges.md         Crossovers → dual-pass nodes
+        ├── 06-links.md           Hoop / Loop / Chain
+        └── 07-cubes.md           3D nets → seam edges
 ```
 
 > **PDF docs:** the markdown files are the source of truth. Generate PDFs on demand with

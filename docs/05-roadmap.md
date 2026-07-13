@@ -5,36 +5,67 @@ the risky CV/Android work rides on top of a proven engine.
 
 ## Phase 1 — Solver core (desktop CLI)
 
-**Build:** the `:solver` module (model + DFS search + pruning) and a CLI that reads a text grid
-and prints the solution.
+**Build:** the `:solver` module (**graph** model + DFS search + pruning) and a CLI that reads a
+text grid and prints the solution.
 
-- Data model, DFS with most-constrained-color, `prune_ok` (reachability + coverage + deadend).
-- Text grid I/O (format in [01-problem-analysis.md](01-problem-analysis.md)).
+- Graph model: `nodes` / `edges` / `bridges` — **not** a `[r][c]` grid. See
+  [04-solver-design.md](04-solver-design.md).
+- DFS with most-constrained-color, forced-move propagation, `prune_ok` (reachability + coverage +
+  stranded-pocket + deadend).
+- Text format parser incl. `WALL` / `HOLE` / `BRIDGE` directives
+  ([levels/README.md](levels/README.md)).
 - Fixtures + self-check (3×3, several 5×5).
+
+> **Build the graph model now, not later.** A cell-based `owner[r][c]` solver cannot represent a
+> bridge and computes neighbors with `r±1` arithmetic that silently ignores walls and seams.
+> Retrofitting it means rewriting every flood fill. This is the one place where doing it right
+> up front is *less* work, not more.
 
 **Done when:** `flowsolve puzzle.txt` solves all fixtures with valid, full-coverage output, and
 the self-check passes. No Android, no CV yet.
 
-## Phase 2 — Bridges support
+## Phase 2 — Level variants
 
-**Build:** edge-graph model + crossover handling in the solver.
+**Build:** the parse-time transforms. If Phase 1's graph model is right, **this is mostly parser
+work, not solver work.**
 
-- Bridge cells: H/V pass-through, straight-only, dual coverage.
-- Import the 5×5 bridges corpus (levels 1–30) as fixtures.
+- **Walls** — remove edges. **Obstacles** — remove nodes. **Rectangle** — `R ≠ C`. All should be
+  ~free; if any of them requires touching the search loop, Phase 1's model is wrong — fix that
+  instead of special-casing here.
+- **Bridges** — the one real solver change: dual-color crossover nodes, straight-through
+  traversal, dual coverage. Import the 5×5 Bridges 1–30 corpus.
+- **Mania** — the scale test. Add 12×12/14×14 fixtures with a **time bound**, not just a
+  correctness assert.
+- **Cubes / Links** — confirm the actual mechanic from a screenshot first
+  ([levels/06-links.md](levels/06-links.md), [levels/07-cubes.md](levels/07-cubes.md)); both are
+  expected to reduce to add-edges / remove-nodes.
 
-**Done when:** the bridges fixtures solve correctly and the self-check validates dual-color
-bridge cells.
+Per-variant fixtures and what each must prove: **[levels/](levels/)**.
+
+**Done when:** every variant fixture solves, and the load-bearing negative tests pass (drop a wall
+→ unsolvable; drop a seam → unsolvable; count a hole as coverable → unsolvable).
 
 ## Phase 3 — Grid detection (screenshot → model)
 
-**Build:** `:detection` — bitmap in, puzzle model out.
+**Build:** `:detection` — bitmap in, puzzle model out. **This is the hard phase**, and the
+variants are why: the solver treats them all identically, but the *detector* has to tell them
+apart.
 
-- Locate board bounds + cell size; sample cell centers; cluster into `K` endpoint pairs.
+- Locate board bounds + cell size; sample cell centers (median of a patch, not one pixel).
+- **Cell classification** (3-way): empty / endpoint color / **hole**.
+- **Border classification**: **wall** vs ordinary gridline — discriminate on thickness+brightness.
+  The most error-prone step in the project; a single missed wall makes a board unsolvable with no
+  obvious clue why.
+- **Bridge glyph** detection.
 - First version: **manual grid confirm/nudge** (calibration knob), then automate.
-- Bridge-glyph detection.
+- Cubes detection is a **stretch goal** — support Cubes via manual text entry first.
 
-**Done when:** feeding a saved Flow Free screenshot produces a model that the Phase 1 solver
-solves. Test against a folder of screenshots.
+> Detection is where the wall/obstacle distinction actually bites. Getting it wrong produces
+> "every board is unsolvable" — a symptom that points nowhere near its cause. Build the
+> misclassification negative tests early.
+
+**Done when:** feeding a folder of saved Flow Free screenshots (incl. walls, holes, bridges)
+produces models the Phase 1/2 solver solves correctly.
 
 ## Phase 4 — Mobile shell (Android)
 

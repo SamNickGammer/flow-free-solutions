@@ -34,40 +34,44 @@ cell used, no crossings, both pairs joined.
 
 - Cells addressed `(row, col)`, `0`-indexed from the top-left.
 - Neighbors are the 4 orthogonal cells (no diagonals).
-- **Text format** we'll use for the CLI and test fixtures: one row per line, one char per cell.
-  Uppercase letters = endpoints, `.` = empty. Two cells sharing a letter are that color's pair.
+- **Text format** we'll use for the CLI and test fixtures: dimensions, then one row per line, one
+  char per cell. Uppercase letters = endpoints, `.` = empty. Two cells sharing a letter are that
+  color's pair. Optional directives follow the grid.
 
 ```
-Example 5×5 (Flow Free "Regular Pack" style):
+5 5
 B . . . R
 . . . . .
 . . Y . .
 . G . . .
 B R Y G .
+WALL 1,1 1,2      # blocks the edge between (1,1) and (1,2) — both cells still exist
+HOLE 2,3          # cell (2,3) does not exist — excluded from coverage
+BRIDGE 3,2        # crossover cell (two flows pass straight through)
 ```
 
-## The Bridges variant
+**One format, every variant.** No per-variant flags or parsers — see
+[levels/README.md](levels/README.md).
 
-**Flow Free: Bridges** adds **crossover cells**. On a bridge cell, two flows pass through the
-same cell without connecting — one goes horizontally, one goes vertically. They cross *over/under*
-each other.
+## Level variants
 
-Model implications:
+Flow Free has ~30 pack categories (Mania, Bridges, Walls, Obstacles, Cubes, Rectangle, Links,
+Warps, Hexes). They are all the **same puzzle on a different graph**, and each reduces to one of
+three parse-time operations:
 
-- A normal cell holds **one** color and has degree 2 (or 1 at an endpoint).
-- A **bridge cell** holds **two** flows simultaneously: exactly one horizontal pass-through and
-  one vertical pass-through. The horizontal pair (left↔right) is one color's segment; the
-  vertical pair (up↔down) is another color's segment. They must be *different* colors and must
-  each go **straight through** (no turning on a bridge).
-- Coverage still applies; bridge cells count as covered by both flows.
+- **remove edges** → walls (a bold line between two cells that a flow can't cross; **both cells
+  still exist and still must be filled**)
+- **remove nodes** → obstacles/holes (the cell isn't part of the board and **must not be filled**)
+- **add edges** → cube seams, warps, portals
 
-Data-model consequence: a cell is no longer "one color". It's better modeled as **edges between
-adjacent cells** carrying a color, with the constraint that a bridge cell allows the H edge-pair
-and V edge-pair to carry different colors, while a normal cell forces all its used edges to share
-one color. See [04-solver-design.md](04-solver-design.md).
+Plus **bridges**, which mark a node as carrying two straight passes (one H, one V, different
+colors). This is the one variant that touches the solver.
 
-Reference boards (5×5, levels 1–30) are catalogued at givemetheanswer (see
-[references.md](references.md)) — useful as a test corpus for the bridges model.
+⚠️ **Walls and obstacles are opposites, not variations.** A wall cell counts toward coverage; a
+hole does not. Confusing them makes every board report unsolvable.
+
+**Full breakdown, one doc per level type: [levels/](levels/).** That directory — not this file — is
+the reference for variant mechanics.
 
 ## Why it's hard (complexity)
 
@@ -79,8 +83,14 @@ In practice, though, real Flow Free levels are *designed to be human-solvable* a
 solutions. That structure (forced corners, tight coverage) makes them very tractable for a
 pruned search — most boards collapse in milliseconds once dead-end detection kicks in.
 
-Practical size range we target: **5×5 up to ~15×15** (the app's largest packs). Search with
-connectivity + coverage pruning handles this range comfortably on a phone.
+Practical size range we target: **5×5 up to 15×15** (15×15 Mania is the app's largest, plus Mega
+Mania at 11×14 / 12×15). Search with connectivity + coverage pruning handles this range comfortably
+on a phone — but 14×14 is where a naive solver dies, so it's the benchmark that proves the pruning
+works. See [levels/01-mania.md](levels/01-mania.md).
+
+Note that **walls and obstacles make boards *easier* to search**, not harder: they remove edges and
+nodes, which shrinks the branching factor and makes the deadend/forced-move prunes fire earlier. A
+heavily-constrained board is a gift.
 
 ## What the solver must output
 
