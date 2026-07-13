@@ -7,42 +7,69 @@
 > screenshots before writing code against this. The good news: under the graph model, *every*
 > plausible reading is already covered — see below.
 
-## Most likely reading: board-shape packs
+## Reading A: board-shape packs (most likely)
 
 "Hoop", "Loop", "Chain" almost certainly describe the **shape of the playable region**, not a new
-game rule:
+game rule. If so they are **[Obstacles](04-obstacles.md)** — pure `HOLE` directives, **zero new
+code**. A ring board is a rectangle with the middle punched out.
+
+### See it — a Hoop board
+
+> Generated and machine-verified. 5×5 with the inner 3×3 removed → **16 nodes** in a ring.
 
 ```
-Hoop / Loop (ring)          Chain (linked blobs)
-
-# # . . . # #               . . . # . . .
-# . . . . . #               . . . . . . .
-. . # # # . .               . . . # . . .
-. . # # # . .               # # . # . # #
-. . # # # . .               . . . # . . .
-# . . . . . #               . . . . . . .
-# # . . . # #               . . . # . . .
-
-# = hole                    a chain of chambers joined by narrow necks
+PUZZLE                  SOLUTION
+──────                  ────────
+ .   A   B   .   .       a───A   B───b───b
+                         │               │
+ .   #   #   #   .       a   #   #   #   b
+                         │               │
+ .   #   #   #   .       a   #   #   #   b
+                         │               │
+ .   #   #   #   B       a   #   #   #   B
+                         │
+ .   A   C   .   C       a───A   C───c───C
 ```
 
-If that's what they are, they are **[Obstacles](04-obstacles.md)** — pure `HOLE` directives.
-**Zero new code.** A ring board is a rectangle with a hole punched in the middle; a chain board is
-a rectangle with holes pinching it into linked chambers.
+A ring board forces flows into **long single-file runs** — there's no room to manoeuvre. Note this
+is nothing but `HOLE` directives; the solver has no idea it's solving a "Hoop".
 
-## The other possibility: portals
+## Reading B: portals
 
-"Link" *could* mean a **teleport pair** — two non-adjacent cells joined so a flow can step
-between them.
-
-That's also covered: **add an edge** between the two cells.
+"Link" *could* instead mean a **teleport pair** — two non-adjacent cells joined so a flow steps
+straight between them. Also covered: **add an edge**.
 
 ```
 LINK 0,0 4,4     →   Edges.add( (0,0) ↔ (4,4) )
 ```
 
-The graph doesn't care that they aren't adjacent. Flood fill, reachability, and coverage all still
-just walk `Edges`. Same as how [Cubes](07-cubes.md) and Warps work — they're all "add an edge".
+### See it — a portal board
+
+> Generated and machine-verified. Plain 5×5 **plus one added edge** `(0,0) ↔ (4,4)`.
+
+```
+PUZZLE                  SOLUTION
+──────                  ────────
+ .   A   .   .   .       a───A   d───d───d
+                                 │       │
+ .   D   .   .   .       d───D   d───d   d
+                         │           │   │
+ .   .   .   .   D       d───d───d───d   D
+
+ .   .   .   .   C       c───c───c───c───C
+                         │
+ .   C   B   B   A       c───C   B───B   A
+```
+
+Flow **A** has endpoints at `(0,1)` and `(4,4)` — opposite corners of the board. Its entire path is
+just **three cells**: `A(0,1) → a(0,0) → ⚡ → A(4,4)`. It steps from the top-left corner **directly
+to the bottom-right** through the portal.
+
+That jump is **invisible in the flat grid** — which is exactly the point. The route looks
+impossible until you remember the edge exists. The graph doesn't care that the two cells aren't
+neighbours; flood fill and coverage just walk `Edges`.
+
+Same mechanism as [Cubes](07-cubes.md) seams and Warps wrapping — all three are "add an edge".
 
 ## Why this doc is safe to be wrong
 

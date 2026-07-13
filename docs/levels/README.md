@@ -37,6 +37,44 @@ and `Edges` — they don't know or care what "shape" the board is.
 Read the table again: **remove edges, remove nodes, add edges.** Three operations cover the
 entire game.
 
+## Reading the diagrams
+
+Every level doc shows a **puzzle and its solution**, side by side. Same notation throughout:
+
+| Symbol | Meaning |
+|---|---|
+| `.` | empty cell |
+| `A` `B` `C` | **endpoint** (uppercase) — the two dots you must connect |
+| `a` `b` `c` | **pipe** (lowercase) — that colour's path through a cell |
+| `───` `│` | the pipe's route between cells |
+| `┃` `━━━` | **wall** — blocks movement between two cells ([03](03-walls.md)) |
+| `#` | **hole** — not a cell; must NOT be filled ([04](04-obstacles.md)) |
+| `╬` | **bridge** — two flows cross here ([05](05-bridges.md)) |
+
+Baseline — a plain 5×5, no variants:
+
+```
+PUZZLE                  SOLUTION
+──────                  ────────
+ D   .   .   .   .       D───d───d   c───c
+                                 │   │   │
+ .   .   D   C   .       a───a   D   C   c
+                         │   │           │
+ A   .   .   .   .       A   a   c───c   c
+                             │   │   │   │
+ A   .   .   .   .       A───a   c   c   c
+                                 │   │   │
+ B   B   C   .   .       B───B   C   c───c
+```
+
+Every cell ends up filled — that's the **coverage** rule, and it's why `C` takes such a long way
+round rather than connecting directly.
+
+> **These diagrams are generated, not drawn.** Each one is produced by a working solver and passed
+> through an independent verifier that checks: every flow joins its endpoints, every step is a
+> legal edge, no cell is double-used, and every node is covered. See
+> [Reproducing them](#reproducing-them).
+
 ## Why this matters — the wall vs obstacle distinction
 
 This is the trap, and it's the thing you asked about. They *look* similar on screen. They are
@@ -99,6 +137,25 @@ The solver is easy. **Telling a wall from an obstacle from a screenshot is the h
 
 Detection must classify all three. See [../03-architecture.md](../03-architecture.md). Expect to
 need a manual confirm step here first — this is the part most likely to misread.
+
+## Reproducing them
+
+The diagrams in these docs come from a working prototype solver in [`../../tools/`](../../tools/):
+
+```
+python3 tools/gen_diagrams.py        # regenerates every diagram in docs/levels/
+```
+
+`tools/flow.py` implements the graph model described above — `nodes` / `edges` / `bridges`, DFS
+with most-constrained-color selection, and the reachability/coverage/deadend prunes. `verify()` is
+an **independent checker** that does not trust the solver: it re-walks each path and asserts every
+rule from scratch.
+
+It is a **prototype**, not the shipping solver — Python, single-threaded, and it exists to prove
+the design and generate verified diagrams. The real `:solver` module (Phase 1) is a port of it.
+
+That it works is itself the evidence for the claims on this page: **one solver, seven variants, and
+the only variant that touched the search loop was bridges.**
 
 ## Confidence note
 

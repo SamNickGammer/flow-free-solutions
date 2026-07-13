@@ -7,17 +7,42 @@
 A **crossover cell**. Two flows pass through the same cell without connecting — one goes
 horizontally, one goes vertically, crossing over/under each other.
 
-```
-        │ R
-        │
-  B ────┼──── B      the bridge cell carries BOTH flows
-        │              horizontal: blue passes L→R
-        │ R            vertical:   red passes U→D
-                       they cross, they do not connect
-```
-
 Bridges levels **also contain walls** — the two mechanics appear together. See
 [03-walls.md](03-walls.md).
+
+## See it — puzzle and solution
+
+> Legend: `╬` = **bridge cell** · uppercase = endpoint · lowercase = that colour's pipe.
+> Generated and machine-verified.
+
+```
+PUZZLE                  SOLUTION
+──────                  ────────
+ .   .   .   .   .       c───c───c   a───a
+                         │       │   │   │
+ .   C   .   .   .       c───C   c   a   a
+                                 │   │   │
+ A   .   ╬   .   A       A───a───╬───a   A
+                                 │
+ D   D   .   C   .       D───D   c   C───c
+                                 │       │
+ B   B   .   .   .       B───B   c───c───c
+```
+
+Look at the bridge at `(2,2)`:
+
+- **Flow A** enters from the left and exits right — the **horizontal** pass (`A───a───╬───a   A`).
+- **Flow C** enters from the top and exits bottom — the **vertical** pass (the `│` above and below).
+
+Two different flows, **one cell**, no connection between them. Each goes **straight through** — a
+flow may never turn on a bridge.
+
+Note the bridge counts as covered only when **both** passes are filled, so it contributes *two*
+units of coverage, not one.
+
+> **This is the diagram that kills the cell-based model.** `owner[r][c]` can hold `A` or `C`, not
+> both. A cell-based flood fill would see `(2,2)` as occupied by A and refuse to route C through
+> it — and the board would look unsolvable. Colour must live on **edges**.
 
 ## The rules of a bridge cell
 

@@ -15,6 +15,26 @@ Rules are otherwise plain Flow Free: 4-neighbor adjacency, full coverage.
 If any code path assumes `R == C`, that's a bug, not a feature. Keep `rows` and `cols` as separate
 values everywhere — never a single `size`.
 
+## See it — puzzle and solution
+
+> Generated and machine-verified. 4 rows × 7 cols.
+
+```
+PUZZLE                          SOLUTION
+──────                          ────────
+ .   A   D   .   .   D   E       a───A   D───d   d───D   E
+                                 │           │   │       │
+ A   B   C   .   .   E   .       A   B   C   d   d   E   e
+                                     │   │   │   │   │   │
+ B   .   .   .   .   .   .       B───b   c   d   d   e   e
+                                         │   │   │   │   │
+ C   .   .   .   .   .   .       C───c───c   d───d   e───e
+```
+
+Nothing new — it just isn't square. The value of this fixture is purely defensive: it fails loudly
+the moment someone reintroduces a single `size` field or writes `for i in range(n): for j in
+range(n)`.
+
 ## The catch: Tower / Hourglass / Shifted
 
 These pack names suggest the board is **not a full rectangle** — an hourglass shape pinches in the

@@ -13,6 +13,40 @@ Most Mania packs sit in the **9×9 – 14×14** range, with 15×15 at the top en
 
 **None.** `Nodes` = all `R×C` cells, `Edges` = all orthogonal adjacencies.
 
+## See it — puzzle and solution
+
+> Generated and machine-verified. 9×9, 8 colours.
+
+```
+PUZZLE                                  SOLUTION
+──────                                  ────────
+ G   H   .   .   H   .   .   .   .       G   H   h───h   H   c───c───c───c
+                                         │   │   │   │   │   │           │
+ .   .   .   .   .   .   .   .   .       g   h───h   h───h   c───c   c───c
+                                         │                       │   │
+ .   .   F   .   B   B   C   .   .       g───g   F───f   B───B   C   c───c
+                                             │       │                   │
+ .   .   G   .   A   .   .   .   .       g───g   G   f   A───a───a   c───c
+                                         │       │   │           │   │
+ .   .   .   .   .   .   A   .   C       g───g   g   f   f───f   A   c───C
+                                             │   │   │   │   │
+ .   .   .   .   .   .   .   .   D       g───g   g   f   f   f   e───e   D
+                                         │       │   │   │   │   │   │   │
+ .   .   .   .   .   .   .   .   D       g───g   g   f   f   f   e   e   D
+                                             │   │   │   │   │   │   │
+ .   .   .   .   .   F   .   .   E       g───g   g   f   f   F   e   e   E
+                                         │       │   │   │       │   │   │
+ .   .   .   .   .   E   .   .   .       g───g───g   f───f   E───e   e───e
+```
+
+Note how sparse the puzzle is — 81 cells, only 16 endpoints. **Coverage** is what pins the
+solution down: `G` and `F` snake through half the board precisely because every cell must be
+filled. This is why the "just connect the pairs" instinct fails at scale.
+
+**Search cost: 9,009 nodes explored.** Compare with a 5×5, which typically resolves in **~24
+nodes**. That's the exponential blowup the pruning has to fight — and the reason 14×14 is the
+benchmark that matters, not 5×5.
+
 ## Why it still matters: this is the scale test
 
 Mania is where a naive solver dies. It's the benchmark that proves the pruning actually works.

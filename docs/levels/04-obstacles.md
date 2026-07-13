@@ -8,18 +8,50 @@ non-rectangular board shape.
 A cell that **is not part of the board**. Blacked out, absent, or outside the playable blob. No
 flow may enter it, and — critically — **it does not need to be filled**.
 
-The playable region stops being a rectangle:
+## See it — puzzle and solution
+
+> Legend: `.` empty · `#` **hole** · uppercase = endpoint · lowercase = that colour's pipe.
+> Generated and machine-verified.
+
+**Courtyard** — a solid block of holes in the middle. 6×6 = 36 cells, minus 4 holes = **32 nodes
+to cover**:
 
 ```
-Scattered-style              Amoeba/blob-style
-. . # . .                    # # . . # #
-. . . . .                    # . . . . #
-# . . . #                    . . . . . .
-. . . . .                    # . . . . #
-. . . . #                    # # . . # #
-
-# = hole (not a cell)
+PUZZLE                      SOLUTION
+──────                      ────────
+ .   .   C   B   .   B       d───d   C   B   b───B
+                             │   │   │   │   │
+ D   D   C   .   .   A       D   D   C   b───b   A
+                                                 │
+ E   .   #   #   .   .       E───e   #   #   a───a
+                                 │           │
+ .   .   #   #   .   .       e───e   #   #   a───a
+                             │                   │
+ .   E   .   .   A   .       e   E   a───a───A   a
+                             │   │   │           │
+ .   .   .   .   .   .       e───e   a───a───a───a
 ```
+
+The four `#` cells are **left empty in the solution and that is correct** — they are not part of
+the board. Every one of the other 32 cells is filled.
+
+**Scattered** — isolated interior holes:
+
+```
+PUZZLE                  SOLUTION
+──────                  ────────
+ .   A   #   .   .       a───A   #   b───b
+                         │           │   │
+ .   .   .   .   B       a───a   b───b   B
+                             │   │
+ #   .   .   C   C       #   a   b   C───C
+                             │   │
+ .   .   B   D   .       a───a   B   D───d
+                         │               │
+ .   .   A   #   D       a───a───A   #   D
+```
+
+Flows route *around* the holes. 25 − 3 = **22 nodes covered**.
 
 ## Graph transform
 

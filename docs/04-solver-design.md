@@ -104,6 +104,27 @@ route around it automatically. An *obstacle* is an absent node, so it never ente
 A *cube seam* or *warp* is an extra edge, so checks 2/3 traverse it with no special case. Not one
 line of variant-specific pruning code.
 
+### Parity pre-check (free, runs before any search)
+
+The grid is bipartite. Colour cells by `(r+c) % 2`; a flow alternates with every step. For a
+full-coverage solution:
+
+```
+(#even nodes) − (#odd nodes)  ==  S − T
+    S = colors with BOTH endpoints on even cells
+    T = colors with BOTH endpoints on odd cells
+```
+
+`S − T` is fixed by the endpoints alone, so this is checkable in **O(nodes)** before searching. If
+it fails, **the board is unsolvable — don't search.**
+
+Its real value is catching **detector misreads**: mistaking a wall for a hole (or vice versa) shifts
+the node count by one and usually trips this immediately, instead of burning a full search on a
+14×14 board that was never solvable. Cheap, and it fails in the right place.
+
+*(Does not apply to boards with bridges — a bridge node is visited twice, so the flows no longer
+partition the nodes.)*
+
 ### Move ordering heuristic
 
 Prefer moves that (a) hug walls / other flows (coverage tends to favor the boundary), and

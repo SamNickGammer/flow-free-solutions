@@ -38,6 +38,34 @@ Edges = (normal within-face adjacencies)
 That's the whole thing. The solver has no concept of "faces", "cubes", or "3D". It has a node set
 and an edge set. A seam edge is just an edge.
 
+## See it — puzzle and solution
+
+> Generated and machine-verified. Two 3×3 faces. `#` = the fold (not a cell).
+> Seam: `A(r,2) ↔ B(2−r,6)` — a **reversed** orientation, the kind a real fold produces.
+
+```
+PUZZLE                          SOLUTION
+──────                          ────────
+ .   .   .   #   D   C   .       a───a   b   #   D   C───c
+                                 │   │   │       │       │
+ .   A   .   #   .   .   C       a   A   b   #   d───d   C
+                                 │       │           │
+ A   B   .   #   D   .   B       A   B───b   #   D───d   B
+
+    FACE A                          FACE B
+```
+
+Flow **B** has endpoints at `(2,1)` on face A and `(2,6)` on face B. Trace it:
+`B(2,1) → b(2,2) → b(1,2) → b(0,2) → ⚡seam⚡ → B(2,6)`.
+
+That last step, `(0,2) → (2,6)`, **looks like a teleport in the flat net** — it crosses the fold
+*and* flips orientation (row 0 on face A meets row 2 on face B). On the folded cube those two cells
+are simply next to each other.
+
+**This is why the seam table must be explicit data, not index arithmetic.** Get the reversal
+backwards and you produce a board that still *looks* solvable, hands you a confident answer, and
+the game rejects it. There is no crash to debug.
+
 ## The one real difficulty: seam mapping
 
 The hard part isn't solving — it's **getting the seam adjacency right**.

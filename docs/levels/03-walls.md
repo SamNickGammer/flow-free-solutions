@@ -10,14 +10,56 @@ A **bold line drawn on the border between two adjacent cells**. A flow **cannot 
 Both cells still exist. Both cells still have to be filled. You just can't step directly from one
 to the other — you have to go around.
 
-```
-   before wall              with wall between (1,1)-(1,2)
+## See it — puzzle and solution
 
-   . . . . .                . . . . .
-   . A→B . .                . A ┃ B . ←  A cannot step right into B
-   . . . . .                . . ┃ . .     it must route around
-   . . . . .                . . . . .
+> Legend: `.` empty · uppercase = **endpoint** · lowercase = that colour's **pipe** ·
+> `┃` `━━━` = **wall** · `#` = hole · `╬` = bridge.
+> All diagrams below are **generated and machine-verified** — see [Reproducing](#reproducing).
+
 ```
+PUZZLE                  SOLUTION
+──────                  ────────
+ .   .   .   .   B       b───b───b───b───B
+                         │
+ B   .   .   .   C       B   a───a───a   C
+                             │       │   │
+ A   . ┃ A   .   .       A───a ┃ A───a   c
+                                         │
+ .   D   .   .   .       d───D   c───c   c
+                         │       │   │   │
+ D   C   .   .   .       D   C───c   c───c
+```
+
+Look at flow **A**. Its endpoints are `(2,0)` and `(2,2)` — two cells apart on the same row. The
+wall sits between `(2,1)` and `(2,2)`, so **A cannot just walk straight across**. It is forced to
+detour: `(2,0) → (2,1) → up → across the row above → down → (2,2)`.
+
+**That is what a wall does to a solution.** All 25 cells still get filled, including both cells
+touching the wall.
+
+## The wall is load-bearing — same endpoints, wall on/off
+
+Same puzzle, solved twice. The only difference is the one wall:
+
+```
+SOLUTION (no wall)      SOLUTION (wall added)
+──────────────────      ─────────────────────
+ b───b   b───b───B       b───b───b───b───B
+ │   │   │               │
+ B   b───b   c───C       B   a───a───a   C
+             │               │       │   │
+ A───a───A   c───c       A───a ┃ A───a   c
+                 │                       │
+ d───D   c───c   c       d───D   c───c   c
+ │       │   │   │       │       │   │   │
+ D   C───c   c───c       D   C───c   c───c
+```
+
+On the left, **A** runs straight across: `A───a───A`. Add the wall and that route dies — the whole
+board reorganises. Every colour's path changes.
+
+This is why a wall fixture must be **load-bearing**: a solver that ignores walls entirely would
+still pass a test whose wall happened to sit off the solution path.
 
 ## Graph transform
 
@@ -50,6 +92,87 @@ filled → it returns a "solution" with a hole in it, or finds nothing.
 
 If you model an obstacle as a wall, the solver keeps trying to fill a cell that **can't** be
 filled → **every board reports unsolvable**, and you'll spend a day blaming the search.
+
+### Demonstrated
+
+Here is that exact bug, run through the solver. Take a solvable board with a **hole** at `(2,2)`:
+
+```
+PUZZLE: HOLE at (2,2)      SOLUTION — 24 cells filled
+─────────────────────      ──────────────────────────
+ B   A   .   .   .          B   A───a   a───a
+                            │       │   │   │
+ .   .   .   .   .          b───b   a───a   a
+                                │           │
+ .   .   #   A   .          b───b   #   A───a
+                            │
+ .   B   C   D   .          b   B   C   D───d
+                            │   │   │       │
+ .   .   C   D   .          b───b   C   D───d
+```
+
+Now model that same obstacle **as walls** instead — fence `(2,2)` off on all four sides. Same
+endpoints, cell still present:
+
+```
+ B   A   .   .   .
+                            solver result:  UNSOLVABLE
+ .   .   .   .   .
+        ━━━                 (2,2) has no usable edges left,
+ .   . ┃ . ┃ A   .          but coverage still demands it be filled.
+        ━━━
+ .   B   C   D   .
+
+ .   .   C   D   .
+```
+
+**Walling a cell off is not the same as removing it.** The walled cell still has to be filled, and
+now nothing can reach it — so the board is dead. Get this wrong in the detector and *every* level
+reports unsolvable.
+
+### They are not even interchangeable in principle
+
+There's a **parity invariant** that makes this precise. Colour the cells like a chessboard by
+`(r+c) % 2`; the grid graph is bipartite, so a flow alternates black/white with every step.
+
+- A flow with **both endpoints on the same colour** has an odd cell-count, eating one more of that
+  colour than the other (**±1**).
+- A flow with **endpoints on opposite colours** eats an equal number of each (**0**).
+
+Full coverage means the flows partition every node, so summing over all colours:
+
+```
+(#even cells) − (#odd cells)  =  S − T
+     where S = colours with BOTH endpoints on even cells
+           T = colours with BOTH endpoints on odd cells
+```
+
+A 5×5 board has 13 even and 12 odd cells → any solution needs `S − T = 1`. Punch out one even cell
+(a hole) → 12 and 12 → now it needs `S − T = 0`.
+
+**`S − T` depends only on where the endpoints are.** So the same endpoint set can *never* solve both
+the walled board and the holed board — removing a node always flips the parity budget by one. Wall
+and obstacle aren't two settings of one knob; **they are different boards.**
+
+Measured on the verified solutions in these docs:
+
+| Board | nodes | `#even − #odd` | `S − T` | |
+|---|---|---|---|---|
+| plain 5×5 | 25 | `+1` | `+1` | holds |
+| **5×5 + wall** | **25** | **`+1`** | **`+1`** | holds — *the walled cell is still a node* |
+| **5×5 + hole** | **24** | **`0`** | **`0`** | holds — *the node is gone, budget flips* |
+| 6×6 courtyard | 32 | `0` | `0` | holds |
+
+The wall board and the hole board demand **different** endpoint parities. That's the distinction,
+in arithmetic.
+
+*(Holds for plain/walled/holed boards. [Bridges](05-bridges.md) break the count — a bridge node is
+visited twice, so the flows no longer partition the nodes.)*
+
+This is also a **free solvability pre-check**: compute `S − T` from the endpoints at parse time and
+compare to `#even − #odd`. If they disagree, the board is unsolvable and no search is needed. It
+costs O(cells) and catches detector misreads instantly — which, given how easily a wall gets read as
+a hole, is exactly the bug you want caught before a 14×14 search runs.
 
 Get this boundary right at parse time and the solver is correct for free. See
 [04-obstacles.md](04-obstacles.md).

@@ -88,6 +88,39 @@ They look alike on screen and are **opposites** to the solver:
 Model an obstacle as a wall and the solver chases a cell that can never be filled → **every board
 reports unsolvable**. Getting this right at parse time is what makes the solver correct for free.
 
+## Every level type, shown
+
+Each doc in [`docs/levels/`](docs/levels/) carries a **puzzle and its solution**. Uppercase =
+endpoint, lowercase = that colour's pipe, `┃`/`━━━` = wall, `#` = hole, `╬` = bridge.
+
+Here's a wall doing its job — flow `A`'s endpoints sit two cells apart on row 2, but the wall
+blocks the direct step, so `A` is forced to **detour through the row above**:
+
+```
+PUZZLE                  SOLUTION
+──────                  ────────
+ .   .   .   .   B       b───b───b───b───B
+                         │
+ B   .   .   .   C       B   a───a───a   C
+                             │       │   │
+ A   . ┃ A   .   .       A───a ┃ A───a   c
+                                         │
+ .   D   .   .   .       d───D   c───c   c
+                         │       │   │   │
+ D   C   .   .   .       D   C───c   c───c
+```
+
+All 25 cells still get filled — **including both cells touching the wall.** That's what separates a
+wall from a hole.
+
+> **The diagrams are generated, not drawn.** A working solver in [`tools/`](tools/) produces each
+> one, and an independent verifier re-checks every rule from scratch (paths join their endpoints,
+> every step is a legal edge, no cell double-used, every node covered). Run
+> `python3 tools/gen_diagrams.py` to regenerate them.
+>
+> That prototype is also the proof of the design: **seven variants, and the only one that touched
+> the search loop was bridges.**
+
 Full breakdown: **[docs/levels/](docs/levels/)**.
 
 ---
@@ -129,6 +162,10 @@ The same tricks a person uses (great for pruning and for explaining a solution):
 ```
 .
 ├── README.md                    ← you are here
+├── tools/                        Prototype solver + diagram generator (Python)
+│   ├── flow.py                   Graph model, DFS solver, independent verifier
+│   ├── render.py                 ASCII puzzle/solution renderer
+│   └── gen_diagrams.py           Regenerates every diagram in docs/levels/
 └── docs/
     ├── 01-problem-analysis.md    Rules, complexity, text format
     ├── 02-solving-approaches.md  Search vs SAT, heuristics, our choice
