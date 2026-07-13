@@ -67,27 +67,47 @@ apart.
 **Done when:** feeding a folder of saved Flow Free screenshots (incl. walls, holes, bridges)
 produces models the Phase 1/2 solver solves correctly.
 
-## Phase 4 — Mobile shell (Android)
+## Phase 4 — Mobile shell + ✋ Manual mode (Android)
 
-**Build:** `:app`, `:capture`, `:overlay`.
+**Build:** `:app`, `:capture`, `:overlay`. Spec: **[06-ux.md](06-ux.md)**.
 
 - Foreground service + persistent notification (stay alive in background).
-- Floating overlay button (`SYSTEM_ALERT_WINDOW`).
+- Floating bubble (`SYSTEM_ALERT_WINDOW`).
 - MediaProjection one-frame capture on tap.
-- Wire capture → detection → solver → **overlay render** of the solution on the grid.
+- Wire capture → detection → solver → **hold the solution, draw nothing**.
+- The **choice card**: "Solved — 4 flows" → `✋ Manual` / `⚡ Draw it`.
+- **Manual overlay**: faint paths (~35% opacity), **direction arrows**, pulsing start dots.
 
-**Done when:** open a level, tap the button, and see correct solution lines drawn over the game.
-You trace them by hand.
+> **Solve silently, then ask.** Nothing is drawn on the board until the user picks a mode.
 
-## Phase 5 — Auto-draw
+> ⚠️ **The overlay window MUST be `FLAG_NOT_TOUCHABLE`.** Otherwise it swallows the user's finger and
+> they cannot trace the answer it is showing them — the app looks perfect in a screenshot and is
+> unusable in the hand. Only the bubble takes touches.
 
-**Build:** `:autodraw` — AccessibilityService gesture injection.
+**Done when:** open a level, tap the bubble, pick Manual, and trace the arrows to complete the level.
+No Accessibility permission needed for any of this.
 
-- Map solved cell paths → screen-pixel swipe gestures (one swipe per color).
-- One-tap "solve it for me" that draws every flow.
-- Calibration offset so gestures land on-cell.
+## Phase 5 — ⚡ Draw it (auto-draw)
 
-**Done when:** one tap completes a real level end-to-end.
+**Build:** `:autodraw` — `AccessibilityService.dispatchGesture()`. Confirmed viable: Android
+synthesises real touch events; the game can't tell them from a finger. No root.
+
+- Map solved cell paths → screen-pixel `Path` → **one stroke per flow**, dispatched **in sequence**
+  (visibly one-by-one).
+- **Interpolate per cell**, not just at corners, or long straight runs skip cells.
+- **Stroke-speed setting** (start ~40–60 ms/cell). Real knob, user-visible — too fast and the game
+  drops cells.
+- Calibration offset so strokes land on-cell.
+- **Confidence gate**: only fire auto-draw on a board the detector read cleanly (the parity
+  pre-check from [04-solver-design.md](04-solver-design.md) is a cheap gate).
+
+> ⚠️ **Auto-draw is destructive when wrong.** A few pixels of calibration error starts a swipe on
+> the wrong cell, drags a flow the user didn't mean, and wrecks a half-finished board. Guard it.
+>
+> ⚠️ If the game ever sets `FLAG_SECURE`, MediaProjection returns a **black frame** and there is no
+> workaround. Not true of Flow Free today.
+
+**Done when:** one tap completes a real level end-to-end, flow by flow.
 
 ## Cross-cutting / later
 

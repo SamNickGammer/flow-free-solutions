@@ -27,11 +27,25 @@ The end product is not just a solver. It is a **screen-aware assistant**:
 └──────────────┘              └──────────────┘             └──────────────┘
 ```
 
-A background service keeps a floating button on screen. You open a Flow Free level, tap the
-button, and the app captures the screen, finds the grid, solves it, and draws the answer over
-the game — or auto-traces it for you.
+A background service keeps a floating bubble on screen. You open a Flow Free level and tap it.
 
-Full system design: **[docs/03-architecture.md](docs/03-architecture.md)**.
+**The app solves it silently — and shows you nothing.** The board stays clean. Then it asks:
+
+```
+tap bubble → capture → read + solve → ┌─ ASK YOU ─┐ → ⚡ Draw it   the app draws it, flow by flow
+   (you)     (1 frame)  (<1s, silent) │  board is │   ✋ Manual    faint overlay + direction arrows,
+                                      │   clean   │                you trace it yourself
+                                      └───────────┘
+```
+
+Nothing is drawn until **you** pick a mode — because half the time, drawing it yourself is the
+whole point.
+
+**Yes, Android can genuinely draw it itself.** `AccessibilityService.dispatchGesture()` synthesises
+real touch events; the game can't tell them from a finger. No root needed.
+
+Product spec: **[docs/06-ux.md](docs/06-ux.md)** · System design:
+**[docs/03-architecture.md](docs/03-architecture.md)**
 
 ---
 
@@ -172,6 +186,7 @@ The same tricks a person uses (great for pruning and for explaining a solution):
     ├── 03-architecture.md        The mobile screen-aware assistant design
     ├── 04-solver-design.md       Concrete solver: graph model + algorithm
     ├── 05-roadmap.md             Phased build plan
+    ├── 06-ux.md                  What the app does — the product spec
     ├── references.md             Sources and prior art
     └── levels/                   ← one file per level type
         ├── README.md             The universal graph model (start here)
