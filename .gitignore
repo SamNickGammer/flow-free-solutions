@@ -1,1 +1,5 @@
 tools/boards.json
+solver/build/
+solver/.gradle/
+.gradle/
+build/

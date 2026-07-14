@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="flow.RealLevelsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-07-14T14:48:36" hostname="Oms-MacBook-Pro.local" time="4.101">
-  <properties/>
-  <testcase name="every real Flow Free level solves, verified, inside the budget()" classname="flow.RealLevelsTest" time="4.099"/>
-  <testcase name="bridges still route through the DFS engine()" classname="flow.RealLevelsTest" time="0.002"/>
-  <system-out><![CDATA[solved 28 real levels (+1 correctly rejected); worst = jumbo_14x14_19.txt at 1606ms
-]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
