@@ -144,20 +144,35 @@ Full breakdown: **[docs/levels/](docs/levels/)**.
 Two proven families of approach, both documented in
 **[docs/02-solving-approaches.md](docs/02-solving-approaches.md)**:
 
-| Approach | Idea | Trade-off |
-|----------|------|-----------|
-| **Search (A*/DFS)** | Extend one color at a time; prune dead states early. | No dependencies, fast on typical boards, great on mobile. |
-| **SAT reduction** | Encode as boolean constraints, hand to a SAT solver. | Elegant, but needs a solver lib + cycle-elimination loop. |
+**It works, and it's built:** [`solver/`](solver/) — pure Kotlin/JVM, zero Android deps.
 
-**Our pick: search-first.** A depth-first search that always extends the *most constrained
-color*, backed by aggressive pruning:
+```
+./gradlew test    # 17 green: every variant + 29 REAL Flow Free levels
+```
 
-- **Coverage** — no empty cell may become unreachable (every cell must end up filled).
-- **Connectivity** — every unfinished color must still have a free path between its endpoints.
-- **No self-touch / no stranded regions** — reject states that wall off a pocket of the board.
+| | |
+|---|---|
+| real levels solved & verified | **28 / 28** (+1 unsolvable correctly rejected) |
+| real 14×14 Jumbo | **325 ms** |
+| worst case | **1.6 s** |
 
-This mirrors Matt Zucker's `flow_solver` and the human heuristics below. Rationale for choosing
-search over SAT for an on-device tool is in the approaches doc.
+**A hybrid of two engines** — `Flow.solve()` picks one:
+
+| Engine | Handles | Why |
+|---|---|---|
+| **SAT** (Sat4j, pure Java → Android-safe) | everything real | It is the only one that works. |
+| **DFS** | **bridges** | SAT's "one colour per cell" cannot express a cell carrying *two* flows. |
+
+> ### We got this wrong first, and the benchmark caught it
+>
+> The docs originally chose **search over SAT**. We built that search solver properly —
+> most-constrained-colour, forced-move propagation, region-based stranded pruning, primitive hot
+> loops. It **could not solve a real 12×12 in 85,000,000 nodes and 90 seconds.** SAT does the same
+> board in milliseconds.
+>
+> Matt Zucker wrote the canonical Flow Free *search* solver, then published *"eating SAT-flavored
+> crow"* when SAT beat it. We cited that post — and picked search anyway. Paper reasoning lost to a
+> benchmark.
 
 ### Human heuristics we encode
 

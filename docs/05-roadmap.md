@@ -3,7 +3,7 @@
 Phased so each phase ships something runnable and testable on its own. Solver-first, mobile last —
 the risky CV/Android work rides on top of a proven engine.
 
-## Phase 1 — Solver core (desktop CLI)
+## Phase 1 — Solver core ✅ DONE  (`solver/`)
 
 **Build:** the `:solver` module (**graph** model + DFS search + pruning) and a CLI that reads a
 text grid and prints the solution.
@@ -21,10 +21,17 @@ text grid and prints the solution.
 > Retrofitting it means rewriting every flood fill. This is the one place where doing it right
 > up front is *less* work, not more.
 
-**Done when:** `flowsolve puzzle.txt` solves all fixtures with valid, full-coverage output, and
-the self-check passes. No Android, no CV yet.
+**Done.** 17 tests green. `flowsolve puzzle.txt` solves every variant, and **all 29 real Flow Free
+levels** (regular/extreme/jumbo, 5×5–14×14) solve and independently verify — real 14×14 in 325 ms.
 
-## Phase 2 — Level variants
+> **Phase 1 changed the plan, which is exactly what it was for.** The search solver we specced
+> could not solve a real 12×12 in 85 M nodes / 90 s. We switched the engine to **SAT** (Sat4j —
+> pure Java, Android-compatible) and kept DFS only for bridges, which SAT cannot encode. See
+> [02-solving-approaches.md](02-solving-approaches.md).
+>
+> Finding that before a line of Android existed is the entire reason the solver was Phase 1.
+
+## Phase 2 — Level variants  (mostly done in Phase 1)
 
 **Build:** the parse-time transforms. If Phase 1's graph model is right, **this is mostly parser
 work, not solver work.**

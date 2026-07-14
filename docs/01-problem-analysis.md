@@ -18,17 +18,30 @@ what usually forces a **unique** solution and what makes casual guessing fail.
 
 ## Worked micro-example
 
-A 3×3 with two colors. `A` and `B` are endpoints, `.` is empty:
+A 3×3 with two colors. Uppercase = endpoint, lowercase = pipe, `.` = empty:
 
 ```
-input           one valid solution
-A . B           A A B
-. . .     →     A B B
-A . B           A B B
+puzzle          solution
+A A B           A---A   B
+. B .     →             |
+. . .           b---b   b
+                |       |
+                b---b---b
 ```
 
-Color A: top-left → down the left column → across the bottom. Color B fills the rest. Every
-cell used, no crossings, both pairs joined.
+`A` connects directly (2 cells). `B` snakes around the outside to fill the remaining 7. All 9
+cells used, no crossings, both pairs joined.
+
+> ⚠️ **The board you'd reach for first is impossible.** The "obvious" 3×3 —
+> `A . B / . . . / A . B` — has **no solution at all**. Not a hard one: *none*.
+>
+> The [parity invariant](levels/03-walls.md#they-are-not-even-interchangeable-in-principle) proves
+> it without any search: a 3×3 has 5 even and 4 odd cells, so any solution needs `S − T = +1`. Both
+> colors there have both endpoints on even cells, giving `S − T = +2`. Contradiction.
+>
+> An earlier draft of this doc printed exactly that board with a "solution" — and it was wrong.
+> The solver caught it. Coverage is unforgiving, and eyeballing a Flow Free solution is a good way
+> to ship a lie.
 
 ## Grid coordinates & notation
 

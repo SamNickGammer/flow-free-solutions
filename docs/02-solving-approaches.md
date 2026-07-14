@@ -77,21 +77,59 @@ From the puzzling.SE strategy thread and common play:
 These double as **explanation text** — when the app shows a solution, it can narrate *why* each
 early move was forced.
 
-## Our choice: search-first
+## Our choice: SAT — and the search-first plan was WRONG
 
-For an **on-device, dependency-light, explainable** tool, **search with connectivity + coverage
-pruning wins**:
+> ⚠️ **This section originally said "search-first, SAT is a fallback." That was wrong, and we
+> only found out by building it and benchmarking against real levels.** It is left here, corrected,
+> because the mistake is the most useful thing in this document.
 
-| Criterion | Search | SAT |
-|-----------|:------:|:---:|
-| No external solver dependency | ✅ | ❌ |
-| Single solve pass | ✅ | ❌ (cycle loop) |
-| Fast on 5×5–15×15 designed levels | ✅ | ✅ |
-| Easy to port to Kotlin/native for mobile | ✅ | ⚠️ |
-| Step-by-step explanation | ✅ | ⚠️ |
+### What we built, and what it actually did
 
-We implement the search solver first (Phase 1). SAT stays a documented fallback if a
-pathological board ever stalls the search. Bridges support (Phase 2) extends the *model* (edges,
-crossover cells) but keeps the same search+prune engine.
+We implemented the search solver in Kotlin — properly. Graph model, most-constrained-colour
+selection, forced-move propagation, region-based stranded pruning, wall-hugging move ordering,
+all-primitive hot loops with no hashing or allocation. Each of those helped. Per-node cost fell
+~90×.
+
+Then we benchmarked it against **29 real Flow Free levels** (Zucker's corpus: regular, extreme and
+jumbo packs, 5×5 → 14×14):
+
+| Board | Search (DFS) result |
+|---|---|
+| regular 5×5 – 9×9 | instant ✅ |
+| extreme 9×9, 4 colours | 4.3M nodes, 4.6 s |
+| extreme 12×12 | **85,000,000 nodes / 90 s — never finished** ❌ |
+| jumbo 14×14 | **gave up** ❌ |
+
+Small boards were instant, and everything real fell off a cliff. No amount of pruning closed a gap
+that is orders of magnitude wide.
+
+### The same SAT encoding, same boards
+
+| Board | SAT result |
+|---|---|
+| every one of the 29 real levels | **solved & verified** ✅ |
+| jumbo 14×14 | **325 ms** |
+| worst case in the corpus | **1.6 s** |
+
+### This was a known trap
+
+Matt Zucker wrote the canonical Flow Free *search* solver — then published a follow-up called
+**"eating SAT-flavored crow"** when his SAT version beat it. We read that post, cited it, and
+chose search anyway. The reasons looked sound on paper ("no dependency", "single pass",
+"explainable") and none of them survived contact with a 14×14.
+
+**Paper reasoning lost to a benchmark.** That is the lesson worth keeping.
+
+## What actually ships: a hybrid
+
+| Engine | Handles | Why |
+|---|---|---|
+| **SAT** (`SatEngine`) | everything else — walls, holes, seams, rectangles, mania | It is the only one that solves real boards. |
+| **DFS** (`Solver`) | **bridges** | SAT's "every cell has exactly one colour" **cannot express a cell carrying two flows.** Bridges only appear on small boards, where DFS is instant. |
+
+`Flow.solve()` picks the engine. Both are verified by the same independent checker.
+
+The SAT solver is **Sat4j** — pure Java, no JNI, no native libs, so it drops into Android unchanged.
+The "no dependency" argument for search turned out to be worth nothing next to "does not work".
 
 Concrete data model and algorithm: **[04-solver-design.md](04-solver-design.md)**.

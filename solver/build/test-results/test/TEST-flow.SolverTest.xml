@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="flow.SolverTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-07-14T14:48:40" hostname="Oms-MacBook-Pro.local" time="0.018">
+  <properties/>
+  <testcase name="tiny 3x3()" classname="flow.SolverTest" time="0.001"/>
+  <testcase name="parity holds on every solvable board we know()" classname="flow.SolverTest" time="0.001"/>
+  <testcase name="parser rejects a non-adjacent WALL()" classname="flow.SolverTest" time="0.004"/>
+  <testcase name="non-square board — R != C()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="walling a cell off on all 4 sides makes the board UNSOLVABLE()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="seam edge is load-bearing — board dies without it()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="hole is excluded from coverage — same board is solvable()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="plain 5x5 solves with full coverage()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="parity pre-check rejects an impossible board without searching()" classname="flow.SolverTest" time="0.001"/>
+  <testcase name="courtyard — holes stay empty()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="the classic-looking 3x3 is provably unsolvable()" classname="flow.SolverTest" time="0.0"/>
+  <testcase name="wall forces A to detour instead of going straight across()" classname="flow.SolverTest" time="0.001"/>
+  <testcase name="a bridge is crossed once on each axis, always straight through()" classname="flow.SolverTest" time="0.001"/>
+  <testcase name="parser rejects a ragged grid()" classname="flow.SolverTest" time="0.001"/>
+  <testcase name="parser rejects a colour with only one dot()" classname="flow.SolverTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
