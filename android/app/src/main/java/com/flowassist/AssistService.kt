@@ -51,7 +51,21 @@ class AssistService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, notification())
+        // ANDROID 14: a mediaProjection foreground service must declare its type HERE, not just in
+        // the manifest. The 2-arg startForeground() throws and the service dies the instant it
+        // starts — which looks exactly like "it crashed" or "nothing happened".
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIF_ID, notification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            } else {
+                startForeground(NOTIF_ID, notification())
+            }
+        } catch (e: Throwable) {
+            Diag.crash(this, "startForeground", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         val code = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val data = intent?.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
@@ -112,6 +126,7 @@ class AssistService : Service() {
     }
 
     private fun onBubbleTapped() {
+        Diag.log("bubble tapped (busy=$busy, overlay=${overlay != null})")
         if (busy) return
         // Second tap while an answer is showing = dismiss it
         if (overlay != null) { clearOverlay(); return }
@@ -164,8 +179,9 @@ class AssistService : Service() {
                 bmp.recycle()
 
                 bg.post { solve(flow.detect.Image(w, h, px)) }
-            } catch (e: Exception) {
-                main.post { fail("capture failed: ${e.message}") }
+            } catch (e: Throwable) {
+                Diag.crash(this@AssistService, "capture", e)
+                main.post { fail("Capture failed: ${'$'}{e.message}") }
             } finally {
                 image.close()
                 r.close()
@@ -192,36 +208,55 @@ class AssistService : Service() {
     // ------------------------------------------------------------------ detect + solve
 
     private fun solve(img: flow.detect.Image) {
+        // ALWAYS dump the frame we actually captured. This is the single most useful artefact when
+        // it goes wrong on a real phone — it is the screenshot the detector actually saw.
+        Diag.saveShot(this, img)
+        Diag.log("captured ${'$'}{img.w}x${'$'}{img.h}")
+
         val saved = Calibration.load(this)
         val det = try {
             Detector.detect(img, saved?.bounds, saved?.size)
-        } catch (e: Exception) {
-            main.post { fail("could not read the screen: ${e.message}") }
+        } catch (e: Throwable) {
+            Diag.crash(this, "detect", e)
+            main.post { fail("Detection crashed: ${'$'}{e.message}") }
             return
         }
+
+        Diag.report(this, det)
 
         if (det.board == null) {
             // Refuse to guess. Say what went wrong — a confidently wrong board is worse than none.
             val why = det.problems.firstOrNull()?.what ?: "could not find the board"
-            main.post { fail("Couldn't read the board: $why") }
+            Diag.log("NO BOARD: ${'$'}why")
+            main.post { fail("Couldn't read the board:\n${'$'}why") }
             return
         }
 
+        val b = det.board!!
+        Diag.log("board ${'$'}{b.rows}x${'$'}{b.cols}, ${'$'}{b.colors.size} colours, " +
+                 "${'$'}{b.walls.size} walls, ${'$'}{b.holes.size} holes")
+
         val sol = try {
-            Flow.solve(det.board!!, budgetMs = 8_000)
+            Flow.solve(b, budgetMs = 8_000)
         } catch (e: Throwable) {
-            main.post { fail("gave up solving this one") }
+            Diag.crash(this, "solve", e)
+            main.post { fail("Gave up solving this one") }
             return
         }
 
         if (sol == null) {
+            Diag.log("UNSOLVABLE — board almost certainly misread")
             main.post {
-                fail("No solution — the board was probably misread. Try Calibrate in the app.")
+                fail("No solution — the board was probably misread.\nSend me the diagnostics.")
             }
             return
         }
 
-        main.post { showSolution(det, sol) }
+        Diag.log("solved in ${'$'}{sol.elapsedMs}ms")
+        main.post {
+            try { showSolution(det, sol) }
+            catch (e: Throwable) { Diag.crash(this, "overlay", e); fail("Overlay failed: ${'$'}{e.message}") }
+        }
     }
 
     // ------------------------------------------------------------------ overlay

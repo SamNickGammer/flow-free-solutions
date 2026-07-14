@@ -30,6 +30,19 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
 
+        // last-resort: if anything anywhere throws, write it where we can read it
+        val prev = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            Diag.crash(applicationContext, "uncaught on ${'$'}{t.name}", e)
+            prev?.uncaughtException(t, e)
+        }
+
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 7002)
+        }
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(56, 96, 56, 56)
@@ -72,6 +85,10 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(mpm.createScreenCaptureIntent(), PROJECTION_REQ)
         }
         root.addView(startBtn)
+
+        val share = button("Share diagnostics (screenshot + report)")
+        share.setOnClickListener { shareDiagnostics() }
+        root.addView(share)
 
         val reset = button("Reset grid calibration")
         reset.setOnClickListener { Calibration.clear(this); toast("Calibration cleared") }
@@ -120,6 +137,34 @@ class MainActivity : AppCompatActivity() {
 
         toast("Running. Open Flow Free and tap the bubble.")
         moveTaskToBack(true)
+    }
+
+    /**
+     * Ship me what the phone actually saw: the captured frame and the detection report.
+     * Android 11+ blocks the Files app from reaching Android/data, so this has to be a share sheet.
+     */
+    private fun shareDiagnostics() {
+        val dir = getExternalFilesDir(null)
+        val files = listOf("shot.png", "report.txt", "log.txt")
+            .map { java.io.File(dir, it) }
+            .filter { it.exists() }
+
+        if (files.isEmpty()) {
+            toast("Nothing yet — tap the bubble over Flow Free once, then come back")
+            return
+        }
+
+        val uris = ArrayList<android.net.Uri>(files.map {
+            androidx.core.content.FileProvider.getUriForFile(this, "${'$'}packageName.files", it)
+        })
+
+        val i = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "*/*"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            putExtra(Intent.EXTRA_SUBJECT, "Flow Assist diagnostics")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(i, "Send diagnostics"))
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
