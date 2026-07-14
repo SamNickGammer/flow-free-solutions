@@ -79,6 +79,47 @@ Solver: **Sat4j** — pure Java, no JNI, **Android-compatible**.
 
 The CLI runs it on every answer before printing.
 
+## Detection: screenshot -> board  (`flow.detect`)
+
+```bash
+./gradlew shot   --args="/tmp/shot.png"      # render a synthetic Flow Free screenshot
+./gradlew detect --args="/tmp/shot.png"      # read it, solve it, print screen coordinates
+./gradlew detect --args="/tmp/shot.png --bounds 34,34,537,537 --size 9x9"   # manual calibration
+```
+
+Pipeline: **find board -> size the grid -> classify cells -> pair the dots -> find walls**. It
+outputs a `Board` *and* the pixel geometry (`Grid.centerOf(r,c)`) that the overlay draws with and
+auto-draw aims swipes at.
+
+Zero Android types. Android supplies `Bitmap.getPixels()` -> `IntArray`; the desktop CLI supplies
+`ImageIO` -> `IntArray`. **`ImageIO` lives only in `flow.desktop` — it does not exist on Android.**
+
+### It refuses to guess
+
+A wrong board does not fail loudly. It reports "unsolvable" (and you blame the solver), or — with
+auto-draw armed — **it swipes the wrong cells and wrecks a half-finished level.** So any doubt
+returns **no board** plus a list of `Problem`s, and the app falls back to manual calibration.
+
+The strongest self-check is that **every colour has exactly two dots**. Which is also why dot
+pairing is a *matching* problem, not clustering: threshold clustering needs a tolerance loose
+enough to survive antialiasing and tight enough to separate Flow Free's yellow from its orange
+(only ~5,700 apart in squared RGB). The first version merged them into one four-dot "colour".
+Greedy nearest-twin matching needs no tolerance at all.
+
+### ⚠️ What is NOT yet proven
+
+Detection is tested by a **render -> detect -> compare** round-trip against known ground truth
+(walls vs grid lines, walls vs holes, rows vs cols, holes, non-square boards, end-to-end solve).
+
+**That proves the pipeline is sound. It does NOT prove it survives a real screenshot.** Real ones
+bring themes, gradients, drop shadows, DPI scaling, notches and ad banners. The synthetic renderer
+adds jitter and antialiasing so the test is not self-fulfilling, but it is still a rendering of my
+own assumptions.
+
+**Real Flow Free screenshots are the actual validation, and I do not have any.** Two thresholds
+(`Detector.BG_TOLERANCE`, and the wall-brightness cutoff) are calibration knobs sitting at values
+tuned against synthetic images.
+
 ## Puzzle format
 
 One parser, every variant. Comments are `//` — **not `#`, which is the hole glyph.**

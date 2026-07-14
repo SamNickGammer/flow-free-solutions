@@ -40,3 +40,17 @@ tasks.register<JavaExec>("bench") {
     mainClass.set("flow.Bench")
     classpath = sourceSets.main.get().runtimeClasspath
 }
+
+tasks.register<JavaExec>("detect") {
+    group = "application"
+    description = "Read a Flow Free screenshot and solve it"
+    mainClass.set("flow.desktop.DetectMainKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
+// write a synthetic Flow Free screenshot to PNG, so the whole pipeline can be exercised on a file
+tasks.register<JavaExec>("shot") {
+    group = "verification"
+    mainClass.set("flow.desktop.ShotKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+}

@@ -52,7 +52,7 @@ Per-variant fixtures and what each must prove: **[levels/](levels/)**.
 **Done when:** every variant fixture solves, and the load-bearing negative tests pass (drop a wall
 → unsolvable; drop a seam → unsolvable; count a hole as coverable → unsolvable).
 
-## Phase 3 — Grid detection (screenshot → model)
+## Phase 3 — Grid detection ⏳ BUILT, NOT YET VALIDATED  (`flow.detect`)
 
 **Build:** `:detection` — bitmap in, puzzle model out. **This is the hard phase**, and the
 variants are why: the solver treats them all identically, but the *detector* has to tell them
@@ -71,8 +71,19 @@ apart.
 > "every board is unsolvable" — a symptom that points nowhere near its cause. Build the
 > misclassification negative tests early.
 
-**Done when:** feeding a folder of saved Flow Free screenshots (incl. walls, holes, bridges)
-produces models the Phase 1/2 solver solves correctly.
+**Built:** find board → size grid (rows/cols independently) → classify cells (empty/dot/hole) →
+pair dots by nearest-twin matching → detect walls by border brightness. Outputs a `Board` **and**
+the pixel geometry the overlay/auto-draw need. Refuses to emit a board if anything is doubtful.
+
+Tested by render → detect → compare round-trips (7 tests): walls vs grid lines, walls vs holes,
+rows vs cols, courtyard holes, end-to-end screenshot→solve, and an unpairable dot being *reported*
+rather than guessed.
+
+> ⚠️ **NOT DONE.** Passing on synthetic renders proves the pipeline is sound; it does **not** prove
+> it survives a real screenshot (themes, gradients, DPI, notches, ad banners). Two thresholds
+> (`BG_TOLERANCE`, wall brightness) are knobs currently tuned against images I generated myself.
+>
+> **Done when:** a folder of *real* Flow Free screenshots reads correctly. That needs screenshots.
 
 ## Phase 4 — Mobile shell + ✋ Manual mode (Android)
 
